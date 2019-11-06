@@ -1,0 +1,12 @@
+#!/bin/bash
+
+CURL="curl"
+BASE="${DEQAR_BASE}/webapi/v1"
+
+URL="${BASE}/$1"
+METHOD="HEAD"
+
+$CURL -v -H "Authorization: Bearer $DEQAR_TOKEN" -X$METHOD $URL
+
+echo
+
