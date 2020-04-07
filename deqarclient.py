@@ -209,7 +209,10 @@ class NewInstitution:
         def csv_coalesce(*args):
             for column in args:
                 if column in data and data[column]:
-                    return(data[column])
+                    if isinstance(data[column], str):
+                        return(data[column].strip())
+                    else:
+                        return(data[column])
             return(False)
 
         # save api for later use
@@ -224,7 +227,7 @@ class NewInstitution:
             raise DataError("Institution must have an official name and a website.")
 
         # determine primary name
-        name_primary = data['name_english'] if csv_coalesce('name_english') else data['name_official']
+        name_primary = csv_coalesce('name_english', 'name_official')
 
         if verbose:
             print('* {}:'.format(name_primary))
@@ -232,7 +235,7 @@ class NewInstitution:
                 print('  - English name given, used as primary')
             else:
                 print('  - No English name, used official name as primary')
-            print('  - webiste={}'.format(data['website_link']))
+            print('  - webiste={}'.format(csv_coalesce('website_link')))
 
         # resolve country ISO to ID if needed
         if csv_coalesce('country_id', 'country_iso', 'country'):
@@ -248,8 +251,8 @@ class NewInstitution:
         # basic record
         self.institution = dict(
             name_primary=name_primary,
-            website_link=data['website_link'],
-            names=[ { 'name_official': data['name_official'] }],
+            website_link=csv_coalesce('website_link'),
+            names=[ { 'name_official': csv_coalesce('name_official') }],
             countries=[ { 'country': country['id'] } ],
             flags=[ ]
         )
@@ -267,21 +270,21 @@ class NewInstitution:
 
         # add optional attributes
         if csv_coalesce('name_english'):
-            self.institution['names'][0]['name_english'] = data['name_english']
+            self.institution['names'][0]['name_english'] = csv_coalesce('name_english')
         if csv_coalesce('name_official_transliterated'):
             if data['name_official_transliterated'][0] == '*':
-                self.institution['names'][0]['name_official_transliterated'] = translit(data['name_official'], data['name_official_transliterated'][1:3], reversed=True)
+                self.institution['names'][0]['name_official_transliterated'] = translit(csv_coalesce('name_official'), data['name_official_transliterated'][1:3], reversed=True)
                 if verbose:
-                    print("  - transliterated '{}' -> '{}'".format(data['name_official'], institution['names'][0]['name_official_transliterated']))
+                    print("  - transliterated '{}' -> '{}'".format(csv_coalesce('name_official'), self.institution['names'][0]['name_official_transliterated']))
             else:
-                self.institution['names'][0]['name_official_transliterated'] = data['name_official_transliterated']
-        if 'name_version' in data and data['name_version']:
-            self.institution['names'][0]['alternative_names'] = [ { 'name': data['name_version'] } ]
-        if 'acronym' in data and data['acronym']:
-            self.institution['names'][0]['acronym'] = data['acronym']
-        if 'city' in data and data['city']:
-            self.institution['countries'][0]['city'] = data['city']
-        if 'founding_date' in data and data['founding_date']:
+                self.institution['names'][0]['name_official_transliterated'] = csv_coalesce('name_official_transliterated')
+        if csv_coalesce('name_version'):
+            self.institution['names'][0]['alternative_names'] = [ { 'name': csv_coalesce('name_version') } ]
+        if csv_coalesce('acronym'):
+            self.institution['names'][0]['acronym'] = csv_coalesce('acronym')
+        if csv_coalesce('city'):
+            self.institution['countries'][0]['city'] = csv_coalesce('city')
+        if csv_coalesce('founding_date'):
             match = re.match(r'^\s*([0-9]{4})(-(?:1[012]|0?[0-9])-(?:31|30|[012]?[0-9]))?\s*$', data['founding_date'])
             if match:
                 if match[2] is None:
@@ -290,7 +293,7 @@ class NewInstitution:
                     self.institution['founding_date'] = match[1] + match[2]
             else:
                 raise DataError("Malformed founding_date: [{}]".format(data['founding_date']))
-        if 'closing_date' in data and data['closing_date']:
+        if csv_coalesce('closing_date'):
             match = re.match(r'^\s*([0-9]{4})(-(?:1[012]|0?[0-9])-(?:31|30|[012]?[0-9]))?\s*$', data['closing_date'])
             if match:
                 if match[2] is None:
@@ -301,22 +304,22 @@ class NewInstitution:
                 raise DataError("Malformed closing_date: [{}]".format(data['closing_date']))
 
         # process identifier
-        if 'identifier' in data and data['identifier']:
-            self.institution['identifiers'] = [ { 'identifier': data['identifier'] } ]
+        if csv_coalesce('identifier'):
+            self.institution['identifiers'] = [ { 'identifier': csv_coalesce('identifier') } ]
             if 'resource' not in data and 'agency_id' not in data:
                 raise(DataError("Identifier needs to have an agency ID or a resource."))
             if 'resource' in data:
-                self.institution['identifiers'][0]['resource'] = data['resource']
+                self.institution['identifiers'][0]['resource'] = csv_coalesce('resource')
                 if verbose:
-                    print('  - identifier [{}] with resource [{}]'.format(data['identifier'], data['resource']))
+                    print('  - identifier [{}] with resource [{}]'.format(csv_coalesce('identifier'), csv_coalesce('resource')))
             else:
                 self.institution['identifiers'][0]['resource'] = 'local identifier'
                 if verbose:
-                    print('  - identifier [{}] as local identifier'.format(data['identifier']))
+                    print('  - identifier [{}] as local identifier'.format(csv_coalesce('identifier')))
             if 'agency_id' in data:
-                self.institution['identifiers'][0]['agency'] = data['agency_id']
+                self.institution['identifiers'][0]['agency'] = csv_coalesce('agency_id')
                 if verbose:
-                    print('  linked to agency ID [{}]'.format(data['agency_id']))
+                    print('  linked to agency ID [{}]'.format(csv_coalesce('agency_id')))
 
         # process parent institution
         if csv_coalesce('parent_id', 'parent_deqar_id'):
