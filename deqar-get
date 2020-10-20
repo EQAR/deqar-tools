@@ -1,12 +1,80 @@
 #!/bin/bash
+#
+# deqar-(get|head|submit|filesubmit)
+#
+# A simple script to make requests to DEQAR APIs
+#
+# This is mainly meant for ad-hoc queries to the Web API or to send test files
+# to the Submission API. The script is not intended for use in regular, production
+# data submission.
+#
 
-CURL="curl"
-BASE="${DEQAR_BASE}/webapi/v1"
+# base path
+if [ "${DEQAR_BASE: -1}" != "/" ]; then
+    BASE="${DEQAR_BASE}/"
+else
+    BASE="${DEQAR_BASE}"
+fi
 
-URL="${BASE}/$1"
-METHOD="GET"
+# determine our "personality"
+case "$(basename $0)" in
+    deqar-get)
+        URL="${DEQAR_BASE}webapi/v2/$1"
+        METHOD="GET"
+        FILE=""
+        ;;
+    deqar-head)
+        URL="${DEQAR_BASE}webapi/v2/$1"
+        METHOD="HEAD"
+        FILE=""
+        ;;
+    deqar-submit)
+        URL="${DEQAR_BASE}submissionapi/v1/submit/report"
+        METHOD="POST"
+        FILE="$1"
+        CTYPE="application/json"
+        ;;
+    deqar-filesubmit)
+        URL="${DEQAR_BASE}submissionapi/v1/submit/reportfile/$1/$(basename $2)"
+        METHOD="PUT"
+        FILE="$2"
+        CTYPE="$(file -b --mime-type $2)"
+        ;;
+    *)
+        echo "$(basename $0): don't know what to do as this name"
+        exit 5
+esac
 
-$CURL -s -H "Authorization: Bearer $DEQAR_TOKEN" -X$METHOD $URL
 
-echo
+if [ -x "$(command -v http)" ]; then
+    # we have HTTPie installed
+
+    if [ "$FILE" = "" ]; then
+        http -v $METHOD $URL "Authorization: Bearer $DEQAR_TOKEN" "${@:2}"
+    else
+        http -v $METHOD $URL "Authorization: Bearer $DEQAR_TOKEN" "Content-type: $CTYPE" "${@:3}" < $FILE
+    fi
+
+elif [ -x "$(command -v curl)" ]; then
+    # fallback on curl, works equally well but less pretty
+
+    # use json_pp to pretty-print output, if available
+    if [ -x "$(command -v json_pp)" ]; then
+        PP="json_pp"
+    else
+        PP="cat"
+    fi
+
+    if [ "$FILE" = "" ]; then
+        curl -v -H "Authorization: Bearer $DEQAR_TOKEN" -X$METHOD $URL "${@:2}" | $PP
+    else
+        curl -v -H "Content-type: $CTYPE" -H "Authorization: Bearer $DEQAR_TOKEN" -X$METHOD $URL --data-binary @$FILE "${@:3}" | $PP
+    fi
+
+else
+
+    echo "$(basename $0): you need to have either HTTPie or curl installed."
+    exit 10
+
+fi
 
