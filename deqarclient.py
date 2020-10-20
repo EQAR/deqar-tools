@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import requests
 import json
-import click
 import os
 import re
+
 from getpass import getpass
 from warnings import warn
-from transliterate import translit
+
+import requests
 
 class DataError (Exception):
 
@@ -26,66 +26,90 @@ class EqarApi:
 
     """ EqarApi : REST API client for the DEQAR database """
 
-    def __init__(self, base, token=None):
+    PLAIN  = 0
+    NOTICE = 1
+    WARN   = 2
+    ERROR  = 3
+
+    def __init__(self, base, token=None, verbose=False):
         """ Constructor prepares for request. Token is taken from parameter, environment or user is prompted to log in. """
         self.session            = requests.Session()
         self.base               = base.rstrip('/')
         self.webapi             = '/webapi/v2'
         self.request_timeout    = 5
+        self.verbose            = verbose
 
         self.session.headers.update({
-            'user-agent': 'deqar-api-client/0.1 ' + self.session.headers['User-Agent'],
+            'user-agent': 'deqar-api-client/0.2 ' + self.session.headers['User-Agent'],
             'accept': 'application/json'
         })
 
-        click.secho("DEQAR API at {}".format(self.base), bold=True)
+
+        self._log("DEQAR API at {}".format(self.base), self.NOTICE)
 
         if token:
             self.session.headers.update({ 'authorization': 'Bearer ' + token })
-        elif 'DEQAR_TOKEN' in os.environ and os.environ['DEQAR_TOKEN']:
-            click.secho("DEQAR_TOKEN variable set", bold=True)
-            self.session.headers.update({ 'authorization': 'Bearer ' + os.environ['DEQAR_TOKEN'] })
+        elif os.getenv('DEQAR_TOKEN'):
+            self._log("DEQAR_TOKEN variable set", self.NOTICE)
+            self.session.headers.update({ 'authorization': 'Bearer ' + os.getenv('DEQAR_TOKEN') })
         else:
             self.session.headers.update({ 'authorization': 'Bearer ' + self.login() })
 
+    def _log(self, msg, level=PLAIN):
+        """ output message, using click if available """
+        if self.verbose or level == self.WARN or level == self.ERROR:
+            try:
+                from click import secho
+                if level == self.NOTICE:
+                    secho(msg, bold=True)
+                elif level == self.WARN:
+                    secho(msg, fg='yellow')
+                elif level == self.ERROR:
+                    secho(msg, fg='red')
+                else:
+                    secho(msg)
+
+            except ImportError:
+                print(msg)
+
     def login(self):
         """ Interactive login prompt """
-        click.secho("DEQAR login required:", bold=True)
+        self._log("DEQAR login required:", self.NOTICE)
 
         if 'DEQAR_USER' in os.environ:
             user = os.environ['DEQAR_USER']
-            click.secho("Username [{}] from environment variable".format(user))
+            self._log("Username [{}] from environment variable".format(user))
         else:
             user = input("DEQAR username: ")
 
         if 'DEQAR_PASSWORD' in os.environ:
             password = os.environ['DEQAR_PASSWORD']
-            click.secho("Password [***] from environment variable")
+            self._log("Password [***] from environment variable")
         else:
             password = getpass("DEQAR password: ")
 
         r = self.session.post(self.base + '/accounts/get_token/', data={ 'username': user, 'password': password }, timeout=self.request_timeout)
 
         if r.status_code == requests.codes.ok:
-            click.secho("Login successful: {} {}".format(r.status_code, r.reason))
+            self._log("Login successful: {} {}".format(r.status_code, r.reason))
             return(r.json()['token'])
         else:
-            click.secho("Error: {} {}".format(r.status_code, r.reason), fg='red')
+            self._log("Error: {} {}".format(r.status_code, r.reason), self.ERROR)
             raise Exception("DEQAR login failed.")
 
-    def get(self, path, kwargs=None):
+    def get(self, path, **kwargs):
         """ make a GET request to [path] with parameters from [kwargs] """
         try:
             r = self.session.get(self.base + path, params=kwargs, timeout=self.request_timeout)
         except (KeyboardInterrupt):
-            click.secho("Request aborted.", bold=True)
+            self._log("Request aborted.", self.WARN)
             return(False)
 
         if r.status_code == requests.codes.ok:
-            click.secho("Success: {} {}".format(r.status_code, r.reason), nl=False)
+            self._log("Success: {} {}".format(r.status_code, r.reason))
             return(r.json())
         else:
-            click.secho("{}\nError: {} {}".format(r.url, r.status_code, r.reason), fg='red')
+            self._log("{}\nError: {} {}".format(r.url, r.status_code, r.reason), self.ERROR)
             raise Exception("{} {}".format(r.status_code, r.reason))
 
     def post(self, path, data):
@@ -93,24 +117,24 @@ class EqarApi:
         try:
             r = self.session.post(self.base + path, json=data, timeout=self.request_timeout)
         except (KeyboardInterrupt):
-            click.secho("Request aborted.", bold=True)
+            self._log("Request aborted.", self.WARN)
             return(False)
 
         if r.status_code in [ requests.codes.ok, requests.codes.created ]:
-            click.secho("Success: {} {}".format(r.status_code, r.reason), nl=False)
+            self._log("Success: {} {}".format(r.status_code, r.reason))
             return(r.json())
         else:
-            click.secho("{}\nError: {} {}".format(r.url, r.status_code, r.reason), fg='red')
-            print(r.text)
+            self._log("{}\nError: {} {}".format(r.url, r.status_code, r.reason), self.ERROR)
+            self._log(r.text, self.ERROR)
             raise Exception("{} {}".format(r.status_code, r.reason))
 
     def get_institutions(self, **kwargs):
         """ search institutions, as defined by [kwargs] """
-        return(self.get(self.webapi + "/browse/institutions/", kwargs))
+        return(self.get(self.webapi + "/browse/institutions/", **kwargs))
 
     def get_institution(self, id):
         """ get single institution record [id] """
-        return(self.get(self.webapi + "/browse/institutions/{:d}".format(id), None))
+        return(self.get(self.webapi + "/browse/institutions/{:d}".format(id)))
 
     def get_countries(self):
         return(Countries(self))
@@ -123,6 +147,10 @@ class EqarApi:
 
     def create_institution(self, *args, **kwargs):
         return(NewInstitution(self, *args, **kwargs))
+
+    def domain_checker(self):
+        return DomainChecker(self)
+
 
 class Countries:
 
@@ -151,6 +179,50 @@ class QfEheaLevels:
         for l in self.levels:
             if which in [ l['code'], l['level'] ]:
                 return l
+
+class DomainChecker:
+
+    """ Fetches website addresses of all known institutions and allows to check against it """
+
+    def __init__(self, api):
+
+        self.api = api
+        heis = self.api.get('/connectapi/v1/institutions', limit=10000)
+
+        self.domains = dict()
+        for hei in heis['results']:
+            url = None
+            if 'website_link' in hei:
+                try:
+                    url = self.core_domain(hei['website_link'])
+                except DataError:
+                    pass
+            if url:
+                if url not in self.domains:
+                    self.domains[url] = list()
+                self.domains[url].append(hei)
+
+    def core_domain(self, website):
+        """
+        identifies the core domain of a URL by stripping protocol, www, etc.
+        """
+        match = re.match(r'^\s*(?:[a-z0-9]+://)?(?:www\.)?([^/]+)/?.*$', website, flags=re.IGNORECASE)
+        if match:
+            return match[1].lower()
+        else:
+            raise(DataError('[{}] is not a valid http/https URL.'.format(website)))
+
+    def query(self, website):
+        """
+        query if core domain is already known
+        """
+        if self.core_domain(website) in self.domains:
+            for hei in self.domains[self.core_domain(website)]:
+                self.api._log('  - possible duplicate: {deqar_id} {name_primary} - URL [{website_link}]'.format(**hei), self.api.WARN)
+            return self.domains[self.core_domain(website)]
+        else:
+            return False
+
 
 class QfEheaLevelSet (list):
 
@@ -186,13 +258,13 @@ class QfEheaLevelSet (list):
                 level = self.Levels.get(m)
                 recognised.add(level['id'])
                 if verbose:
-                    print('  [{}] => {}/{}'.format(l, level['id'], level['level']))
+                    api._log('  [{}] => {}/{}'.format(l, level['id'], level['level']))
             elif match and match.group(1) == 'cycle':
                 pass
             elif strict:
                 raise(DataError('  [{}] : QF-EHEA level not recognised, ignored.'.format(l)))
             elif verbose:
-                print('  [{}] : QF-EHEA level not recognised, ignored.'.format(l))
+                api._log('  [{}] : QF-EHEA level not recognised, ignored.'.format(l), api.WARN)
 
         for i in recognised:
             self.append({ 'qf_ehea_level': i })
@@ -202,7 +274,12 @@ class QfEheaLevelSet (list):
 
 class NewInstitution:
 
+    """
+    creates a new institution record from CSV input
+    """
+
     Countries = None   # this is a class property and will be filled when the first object is made
+    Domains = None
 
     def __init__(self, api, data, verbose=False):
 
@@ -221,6 +298,8 @@ class NewInstitution:
         # get reference list
         if not NewInstitution.Countries:
             NewInstitution.Countries = api.get_countries()
+        if not NewInstitution.Domains:
+            NewInstitution.Domains = api.domain_checker()
 
         # check if name and website present
         if not ( csv_coalesce('name_official') and csv_coalesce('website_link') ):
@@ -230,12 +309,20 @@ class NewInstitution:
         name_primary = csv_coalesce('name_english', 'name_official')
 
         if verbose:
-            print('* {}:'.format(name_primary))
+            self.api._log('\n* {}:'.format(name_primary), self.api.NOTICE)
             if csv_coalesce('name_english'):
-                print('  - English name given, used as primary')
+                self.api._log('  - English name given, used as primary')
             else:
-                print('  - No English name, used official name as primary')
-            print('  - webiste={}'.format(csv_coalesce('website_link')))
+                self.api._log('  - No English name, used official name as primary')
+            self.api._log('  - webiste={}'.format(csv_coalesce('website_link')))
+
+        # normalise website
+        website = self._url_normalise(csv_coalesce('website_link'))
+
+        # check for duplicate by internet domain
+        self.Domains.query(csv_coalesce('website_link'))
+        if self.Domains.core_domain(website) != self.Domains.core_domain(csv_coalesce('website_link')):
+            self.Domains.query(website)
 
         # resolve country ISO to ID if needed
         if csv_coalesce('country_id', 'country_iso', 'country'):
@@ -244,14 +331,14 @@ class NewInstitution:
             if not country:
                 raise DataError("Unknown country [{}]".format(which))
             elif verbose:
-                print('  - country [{}] resolved to {} (ID {})'.format(which,country['name_english'],country['id']))
+                self.api._log('  - country [{}] resolved to {} (ID {})'.format(which,country['name_english'],country['id']))
         else:
             raise DataError("Country needs to be specified")
 
         # basic record
         self.institution = dict(
             name_primary=name_primary,
-            website_link=csv_coalesce('website_link'),
+            website_link=website,
             names=[ { 'name_official': csv_coalesce('name_official') }],
             countries=[ { 'country': country['id'] } ],
             flags=[ ]
@@ -268,17 +355,26 @@ class NewInstitution:
             warn(DataWarning("  - !!! DUPLICATE NAME: Name version [{}] identical to English name.".format(data['name_version'])))
             del data['name_version']
 
+        self._query_name(csv_coalesce('name_official'))
+
         # add optional attributes
         if csv_coalesce('name_english'):
+            self._query_name(csv_coalesce('name_english'))
             self.institution['names'][0]['name_english'] = csv_coalesce('name_english')
         if csv_coalesce('name_official_transliterated'):
             if data['name_official_transliterated'][0] == '*':
-                self.institution['names'][0]['name_official_transliterated'] = translit(csv_coalesce('name_official'), data['name_official_transliterated'][1:3], reversed=True)
-                if verbose:
-                    print("  - transliterated '{}' -> '{}'".format(csv_coalesce('name_official'), self.institution['names'][0]['name_official_transliterated']))
+                try:
+                    from transliterate import translit
+                    self.institution['names'][0]['name_official_transliterated'] = translit(csv_coalesce('name_official'), data['name_official_transliterated'][1:3], reversed=True)
+                    if verbose:
+                        self.api._log("  - transliterated '{}' -> '{}'".format(csv_coalesce('name_official'), self.institution['names'][0]['name_official_transliterated']))
+                except ImportError:
+                    warn(DataWarning("  - !!! transliteration to [{}] requested, but transliterate module not available".format(data['name_official_transliterated'][1:3])))
+                    del self.institution['names'][0]['name_official_transliterated']
             else:
                 self.institution['names'][0]['name_official_transliterated'] = csv_coalesce('name_official_transliterated')
         if csv_coalesce('name_version'):
+            self._query_name(csv_coalesce('name_version'))
             self.institution['names'][0]['alternative_names'] = [ { 'name': csv_coalesce('name_version') } ]
         if csv_coalesce('acronym'):
             self.institution['names'][0]['acronym'] = csv_coalesce('acronym')
@@ -306,20 +402,22 @@ class NewInstitution:
         # process identifier
         if csv_coalesce('identifier'):
             self.institution['identifiers'] = [ { 'identifier': csv_coalesce('identifier') } ]
-            if 'resource' not in data and 'agency_id' not in data:
+            if 'identifier_resource' not in data and 'agency_id' not in data:
                 raise(DataError("Identifier needs to have an agency ID or a resource."))
-            if 'resource' in data:
-                self.institution['identifiers'][0]['resource'] = csv_coalesce('resource')
+            if 'identifier_resource' in data and 'agency_id' in data:
+                warn(DataWarning("  - identifier [{}] should not have both agency_id AND a resource".format(csv_coalesce('identifier'))))
+            if 'identifier_resource' in data:
+                self.institution['identifiers'][0]['resource'] = csv_coalesce('identifier_resource')
                 if verbose:
-                    print('  - identifier [{}] with resource [{}]'.format(csv_coalesce('identifier'), csv_coalesce('resource')))
+                    self.api._log('  - identifier [{}] with resource [{}]'.format(csv_coalesce('identifier'), csv_coalesce('identifier_resource')))
             else:
                 self.institution['identifiers'][0]['resource'] = 'local identifier'
                 if verbose:
-                    print('  - identifier [{}] as local identifier'.format(csv_coalesce('identifier')))
+                    self.api._log('  - identifier [{}] as local identifier'.format(csv_coalesce('identifier')))
             if 'agency_id' in data:
                 self.institution['identifiers'][0]['agency'] = csv_coalesce('agency_id')
                 if verbose:
-                    print('  linked to agency ID [{}]'.format(csv_coalesce('agency_id')))
+                    self.api._log('  linked to agency ID [{}]'.format(csv_coalesce('agency_id')))
 
         # process parent institution
         if csv_coalesce('parent_id', 'parent_deqar_id'):
@@ -327,7 +425,7 @@ class NewInstitution:
             if match:
                 self.institution['hierarchical_parent'] = [ { 'institution': int(match.group(2)) } ]
                 if verbose:
-                    print('  - hierarchical parent ID [{}] (source: [{}])'.format(int(match.group(2)), csv_coalesce('parent_id', 'parent_deqar_id')))
+                    self.api._log('  - hierarchical parent ID [{}] (source: [{}])'.format(int(match.group(2)), csv_coalesce('parent_id', 'parent_deqar_id')))
             else:
                 raise DataError('Malformed parent_id: [{}]'.format(csv_coalesce('parent_id', 'parent_deqar_id')))
 
@@ -337,12 +435,55 @@ class NewInstitution:
         else:
             self.institution['qf_ehea_levels'] = list()
 
+    def _url_normalise(self, website):
+        """
+        normalises the URL, add http protocol if none specified, resolves redirects
+        """
+        match = re.match(r'^\s*([a-z0-9]+://)?([^/]+)(/.*)?$', website, flags=re.IGNORECASE)
+        if match:
+            protocol = (match[1] or 'http://').lower()
+            domain = match[2].lower()
+            path = match[3] or '/'
+            url = protocol + domain + path
+            try:
+                r = requests.head(url, allow_redirects=True)
+            except requests.exceptions.ConnectionError:
+                self.api._log("  - could not connect to URL [{}]".format(url), self.api.WARN)
+                return url
+            else:
+                if r.status_code in [ requests.codes.ok, requests.codes.created ]:
+                    if r.url != url:
+                        self.api._log("  - URL [{}] was redirected to [{}]".format(url, r.url), self.api.WARN)
+                    return r.url
+                else:
+                    self.api._log("  - URL [{}] did nor return a successful status: {} {}".format(r.url, r.status_code, r.reason), self.api.WARN)
+                    return url
+        else:
+            raise(DataError('[{}] is not a valid http/https URL.'.format(website)))
+
+
+    def _query_name(self, name):
+        """
+        search for existing institution by name
+        """
+        candidates = self.api.get('/connectapi/v1/institutions/', query=name)
+        if candidates['count']:
+            for hei in candidates['results']:
+                self.api._log('  - possible duplicate, name match: {deqar_id} {name_primary}'.format(**hei), self.api.WARN)
+            return candidates['results']
+        return False
+
+
     def post(self, verbose=False):
+        """
+        POST the prepared institution object and return the new DEQARINST ID
+        """
         response = self.api.post('/adminapi/v1/institutions/', self.institution)
         self.institution['deqar_id'] = "DEQARINST{:04d}".format(response['id'])
         if verbose:
-            print(str(self))
+            self.api._log(str(self))
         return(self.institution['deqar_id'])
+
 
     def __str__(self):
         if 'deqar_id' in self.institution:

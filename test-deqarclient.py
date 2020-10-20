@@ -21,7 +21,7 @@ class DeqarClientTestCase(unittest.TestCase):
         self.server_thread.start()
         print('done, port {}.'.format(self.httpd.server_address[1]))
         self.api_url = 'http://localhost:{}/'.format(self.httpd.server_address[1])
-        self.api = deqarclient.EqarApi(self.api_url, 'TEST-TEST')
+        self.api = deqarclient.EqarApi(self.api_url, 'TEST-TEST', verbose=True)
         print('Test server base URL: {}'.format(self.api_url))
 
     def tearDown(self):
@@ -55,10 +55,14 @@ class DeqarClientTestCase(unittest.TestCase):
             if not test[3]:
                 self.assertRaises(deqarclient.DataError, self.api.create_qf_ehea_level_set, test[0], verbose=True, strict=True)
 
+    def test_helpers(self):
+        for test in self.Tests['core_domains']:
+            self.assertEqual(deqarclient.DomainChecker.core_domain(None, test[1]), test[0])
+
     def test_institution_creator(self):
         self.maxDiff = None
         for test in self.Tests['institution_creator']['good']:
-            self.assertEqual(self.api.create_institution(test[0]).institution, test[1])
+            self.assertEqual(self.api.create_institution(test[0], verbose=True).institution, test[1])
         for test in self.Tests['institution_creator']['bad']:
             try:
                 self.assertRaisesRegex(deqarclient.DataError, test[1], self.api.create_institution, test[0])
@@ -72,11 +76,26 @@ class DeqarClientTestCase(unittest.TestCase):
                 print("Input:\n------\n", test[0], "\n\nOutput:\n-------\n", self.api.create_institution(test[0]).institution)
                 raise
 
+
     """
     The following dict defines test sets. This is just to keep them separate from methods above.
     """
 
     Tests = dict(
+        core_domains=[
+            ('educon-university.de',                'www.Educon-University.de'),
+            ('esak.de',                             'WWW.Esak.de'),
+            ('awm-korntal.eu',                      'https://www.awm-korntal.eu/en/index'),
+            ('de.wikipedia.org',                    'https://de.wikipedia.org/wiki/Fachhochschule_im_Deutschen_Roten_Kreuz'),
+            ('de.wikipedia.org',                    'https://de.wikipedia.org/wiki/FH_KUNST_Arnstadt'),
+            ('hfg-gmuend.de',                       'http://WWW.hfg-gmuend.de'),
+            ('gisma.com',                           'HttpS://www.gisma.com/de'),
+            ('hanse-college.de',                    'https://WWW.hanse-college.de/'),
+            ('health-and-medical-university.de',    'https://www.health-and-medical-university.de'),
+            ('hessische-ba.de',                     'Www.Hessische-BA.de'),
+            ('de.wikipedia.org',                    'https://de.wikipedia.org/wiki/Akademie_f%C3%BCr_digitale_Medienproduktion'),
+            ('s370403951.website-start.de',         'http://s370403951.website-start.de/'),
+        ],
         countries=[
             ('AT', 'id', 10),
             ('SI', 'iso_3166_alpha3', 'SLO'),
@@ -103,13 +122,12 @@ class DeqarClientTestCase(unittest.TestCase):
                         name_english='Chinese-German University  ',
                         name_version='testname ',
                         acronym='ABC123',
-                        website_link='https://cdhaw.tongji.edu.cn/ ',
+                        website_link='cdhaw.tongji.edu.cn ',
                         city='  Shanghai ',
                         founding_date=' 2000-01-01',
                         closing_date='1970 ',
                         identifier='X-CN-0012 ',
-                        resource='CN national  ',
-                        agency_id=37,
+                        identifier_resource='CN national  ',
                         parent_id='DeqarINST0987  ',
                         qf_ehea_levels='short cycle, 6, 7, 8  ' ),
                     {
@@ -128,8 +146,7 @@ class DeqarClientTestCase(unittest.TestCase):
                         } ],
                         'identifiers': [ {
                             'identifier': 'X-CN-0012',
-                            'resource': 'CN national',
-                            'agency': 37
+                            'resource': 'CN national'
                         } ],
                         'hierarchical_parent': [ {
                             'institution': 987
@@ -141,7 +158,7 @@ class DeqarClientTestCase(unittest.TestCase):
                             { 'qf_ehea_level': 4 }
                         ],
                         'flags': [ ],
-                        'website_link': 'https://cdhaw.tongji.edu.cn/',
+                        'website_link': 'http://cdhaw.tongji.edu.cn/',
                         'founding_date': '2000-01-01',
                         'closing_date': '1970-12-31'
                     }
@@ -244,6 +261,14 @@ class DeqarClientTestCase(unittest.TestCase):
             warn = [
                 ( dict( country='BEL',
                         name_official='Landeskonservatorium Kärnten',
+                        name_english='Carinthian Conservatory',
+                        website_link='http://www.deqar.eu/',
+                        identifier='4711',
+                        identifier_resource='XYZ',
+                        agency_id=456 ),
+                    r'  - identifier \[4711\] should not have both agency_id AND a resource' ),
+                ( dict( country='BEL',
+                        name_official='Landeskonservatorium Kärnten',
                         name_english='Landeskonservatorium Kärnten',
                         website_link='http://www.deqar.eu/' ),
                     r' - !!! DUPLICATE NAME' ),
@@ -283,7 +308,12 @@ class DeqarTestServerHandler(BaseHTTPRequestHandler):
             {"id":2,"code":1,"level":"first cycle"},
             {"id":3,"code":2,"level":"second cycle"},
             {"id":4,"code":3,"level":"third cycle"}
-        ]
+        ],
+        r'^/connectapi/v1/institutions/?.*$': {
+            "count":0,
+            "results":[
+            ]
+        },
     }
 
     def _headers_ok(self):

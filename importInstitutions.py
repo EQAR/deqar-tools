@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 
 from deqarclient import EqarApi, Countries, QfEheaLevels, DataError
-from tabulate import tabulate
-import click
 import os
 import argparse
 import csv
@@ -21,9 +19,9 @@ parser.add_argument("-v", "--verbose", help="increase output verbosity",
 args = parser.parse_args()
 
 if args.base:
-    api = EqarApi(args.base)
+    api = EqarApi(args.base, verbose=args.verbose)
 elif 'DEQAR_BASE' in os.environ and os.environ['DEQAR_BASE']:
-    api = EqarApi(os.environ['DEQAR_BASE'])
+    api = EqarApi(os.environ['DEQAR_BASE'], verbose=args.verbose)
 else:
     raise Exception("Base URL needs to be passed as argument or in DEQAR_BASE environment variable")
 
