@@ -19,14 +19,32 @@ fi
 # determine our "personality"
 case "$(basename $0)" in
     deqar-get)
-        URL="${DEQAR_BASE}webapi/v2/$1"
+        URL="${DEQAR_BASE}$1"
         METHOD="GET"
         FILE=""
         ;;
     deqar-head)
-        URL="${DEQAR_BASE}webapi/v2/$1"
+        URL="${DEQAR_BASE}$1"
         METHOD="HEAD"
         FILE=""
+        ;;
+    deqar-post)
+        URL="${DEQAR_BASE}$1"
+        METHOD="POST"
+        FILE="$2"
+        CTYPE="application/json"
+        ;;
+    deqar-put)
+        URL="${DEQAR_BASE}$1"
+        METHOD="PUT"
+        FILE="$2"
+        CTYPE="application/json"
+        ;;
+    deqar-patch)
+        URL="${DEQAR_BASE}$1"
+        METHOD="PATCH"
+        FILE="$2"
+        CTYPE="application/json"
         ;;
     deqar-submit)
         URL="${DEQAR_BASE}submissionapi/v1/submit/report"
