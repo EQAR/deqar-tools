@@ -110,10 +110,27 @@ class DeqarClientTestCase(unittest.TestCase):
             ('unknown level', None)
         ],
         level_sets=[
-            ('first, second cycle',         [ { 'qf_ehea_level': 2 }, { 'qf_ehea_level': 3 } ],                         'QF-EHEA: 6-7',     True),
-            ('short cycle, third cycle',    [ { 'qf_ehea_level': 1 }, { 'qf_ehea_level': 4 } ],                         'QF-EHEA: 5-8',     True),
-            ('EQF 5 (short cycle), 6, 7',   [ { 'qf_ehea_level': 1 }, { 'qf_ehea_level': 2 }, { 'qf_ehea_level': 3 } ], 'QF-EHEA: 5-6-7',   False),
-            ('something about spam',        [ ],                                                                        'QF-EHEA: ',        False)
+            (
+                'first, secound cycle',
+                [ { 'id': 2, 'code': 1, 'level': 'first cycle' }, { 'id': 3, 'code': 2, 'level': 'second cycle' } ],
+                'QF-EHEA: 6-7',
+                True
+            ),(
+                'short cycle, third cycle',
+                [ { 'id': 1, 'code': 0, 'level': 'short cycle' }, { 'id': 4, 'code': 3, 'level': 'third cycle' } ],
+                'QF-EHEA: 5-8',
+                True
+            ),(
+                'EQF 5 (short cycle), 6, 7',
+                [ { 'id': 1, 'code': 0, 'level': 'short cycle' }, { 'id': 2, 'code': 1, 'level': 'first cycle' }, { 'id': 3, 'code': 2, 'level': 'second cycle' } ],
+                'QF-EHEA: 5-6-7',
+                False
+            ),(
+                'something about spam',
+                [ ],
+                'QF-EHEA: ',
+                False
+            )
         ],
         institution_creator=dict(
             good=[
@@ -152,10 +169,10 @@ class DeqarClientTestCase(unittest.TestCase):
                             'institution': 987
                         } ],
                         'qf_ehea_levels': [
-                            { 'qf_ehea_level': 1 },
-                            { 'qf_ehea_level': 2 },
-                            { 'qf_ehea_level': 3 },
-                            { 'qf_ehea_level': 4 }
+                            { 'id': 1, 'code': 0, 'level': 'short cycle' },
+                            { 'id': 2, 'code': 1, 'level': 'first cycle' },
+                            { 'id': 3, 'code': 2, 'level': 'second cycle' },
+                            { 'id': 4, 'code': 3, 'level': 'third cycle' }
                         ],
                         'flags': [ ],
                         'website_link': 'http://cdhaw.tongji.edu.cn/',
@@ -190,8 +207,8 @@ class DeqarClientTestCase(unittest.TestCase):
                             'agency': 11
                         } ],
                         'qf_ehea_levels': [
-                            { 'qf_ehea_level': 2 },
-                            { 'qf_ehea_level': 3 },
+                            { 'id': 2, 'code': 1, 'level': 'first cycle' },
+                            { 'id': 3, 'code': 2, 'level': 'second cycle' },
                         ],
                         'flags': [ ],
                         'website_link': 'http://www.deqar.eu/',

@@ -16,12 +16,14 @@ parser.add_argument("-i", "--ignore", help="ignore data errors: skip input line 
                     action="store_true")
 parser.add_argument("-v", "--verbose", help="increase output verbosity",
                     action="store_true")
+parser.add_argument("-c", "--color", help="force ANSI color output even if not on terminal",
+                    action="store_true")
 args = parser.parse_args()
 
 if args.base:
-    api = EqarApi(args.base, verbose=args.verbose)
+    api = EqarApi(args.base, verbose=args.verbose, color=True if args.color else None)
 elif 'DEQAR_BASE' in os.environ and os.environ['DEQAR_BASE']:
-    api = EqarApi(os.environ['DEQAR_BASE'], verbose=args.verbose)
+    api = EqarApi(os.environ['DEQAR_BASE'], verbose=args.verbose, color=True if args.color else None)
 else:
     raise Exception("Base URL needs to be passed as argument or in DEQAR_BASE environment variable")
 

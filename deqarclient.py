@@ -30,14 +30,16 @@ class EqarApi:
     NOTICE = 1
     WARN   = 2
     ERROR  = 3
+    GOOD   = 4
 
-    def __init__(self, base, token=None, verbose=False):
+    def __init__(self, base, token=None, verbose=False, color=None):
         """ Constructor prepares for request. Token is taken from parameter, environment or user is prompted to log in. """
         self.session            = requests.Session()
         self.base               = base.rstrip('/')
         self.webapi             = '/webapi/v2'
         self.request_timeout    = 5
         self.verbose            = verbose
+        self.color              = color
 
         self.session.headers.update({
             'user-agent': 'deqar-api-client/0.2 ' + self.session.headers['User-Agent'],
@@ -55,22 +57,24 @@ class EqarApi:
         else:
             self.session.headers.update({ 'authorization': 'Bearer ' + self.login() })
 
-    def _log(self, msg, level=PLAIN):
+    def _log(self, msg, level=PLAIN, nl=True):
         """ output message, using click if available """
         if self.verbose or level == self.WARN or level == self.ERROR:
             try:
                 from click import secho
                 if level == self.NOTICE:
-                    secho(msg, bold=True)
+                    secho(msg, bold=True, nl=nl, color=self.color)
                 elif level == self.WARN:
-                    secho(msg, fg='yellow')
+                    secho(msg, fg='yellow', nl=nl, color=self.color)
                 elif level == self.ERROR:
-                    secho(msg, fg='red')
+                    secho(msg, fg='red', nl=nl, color=self.color)
+                elif level == self.GOOD:
+                    secho(msg, fg='green', nl=nl, color=self.color)
                 else:
-                    secho(msg)
+                    secho(msg, nl=nl, color=self.color)
 
             except ImportError:
-                print(msg)
+                print(msg, end='\n' if nl else '')
 
     def login(self):
         """ Interactive login prompt """
@@ -99,6 +103,9 @@ class EqarApi:
 
     def get(self, path, **kwargs):
         """ make a GET request to [path] with parameters from [kwargs] """
+
+        self._log("[GET {} ".format(self.base + path), nl=False)
+
         try:
             r = self.session.get(self.base + path, params=kwargs, timeout=self.request_timeout)
         except (KeyboardInterrupt):
@@ -106,10 +113,12 @@ class EqarApi:
             return(False)
 
         if r.status_code == requests.codes.ok:
-            self._log("Success: {} {}".format(r.status_code, r.reason))
+            self._log("{} {}".format(r.status_code, r.reason), self.GOOD, nl=False)
+            self._log("]")
             return(r.json())
         else:
-            self._log("{}\nError: {} {}".format(r.url, r.status_code, r.reason), self.ERROR)
+            self._log("{} {}".format(r.url, r.status_code, r.reason), self.ERROR, nl=False)
+            self._log("]")
             raise Exception("{} {}".format(r.status_code, r.reason))
 
     def post(self, path, data):
@@ -256,7 +265,7 @@ class QfEheaLevelSet (list):
                 else:
                     m = self.LevelKeywords[m]
                 level = self.Levels.get(m)
-                recognised.add(level['id'])
+                recognised.add(level['code'])
                 if verbose:
                     api._log('  [{}] => {}/{}'.format(l, level['id'], level['level']))
             elif match and match.group(1) == 'cycle':
@@ -267,10 +276,10 @@ class QfEheaLevelSet (list):
                 api._log('  [{}] : QF-EHEA level not recognised, ignored.'.format(l), api.WARN)
 
         for i in recognised:
-            self.append({ 'qf_ehea_level': i })
+            self.append(self.Levels.get(i))
 
     def __str__(self):
-        return("QF-EHEA: {}".format("-".join([ str(level['qf_ehea_level'] + 4) for level in self ])))
+        return("QF-EHEA: {}".format("-".join([ str(level['id'] + 4) for level in self ])))
 
 class NewInstitution:
 
@@ -318,6 +327,7 @@ class NewInstitution:
 
         # normalise website
         website = self._url_normalise(csv_coalesce('website_link'))
+        data['website_link'] = website
 
         # check for duplicate by internet domain
         self.Domains.query(csv_coalesce('website_link'))
@@ -456,7 +466,7 @@ class NewInstitution:
                         self.api._log("  - URL [{}] was redirected to [{}]".format(url, r.url), self.api.WARN)
                     return r.url
                 else:
-                    self.api._log("  - URL [{}] did nor return a successful status: {} {}".format(r.url, r.status_code, r.reason), self.api.WARN)
+                    self.api._log("  - URL [{}] did not return a successful status: {} {}".format(r.url, r.status_code, r.reason), self.api.WARN)
                     return url
         else:
             raise(DataError('[{}] is not a valid http/https URL.'.format(website)))
