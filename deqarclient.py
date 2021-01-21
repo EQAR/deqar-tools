@@ -151,6 +151,9 @@ class EqarApi:
     def get_qf_ehea_levels(self):
         return(QfEheaLevels(self))
 
+    def get_hierarchical_types(self):
+        return(HierarchicalTypes(self))
+
     def create_qf_ehea_level_set(self, *args, **kwargs):
         return(QfEheaLevelSet(self, *args, **kwargs))
 
@@ -188,6 +191,21 @@ class QfEheaLevels:
         for l in self.levels:
             if which in [ l['code'], l['level'] ]:
                 return l
+
+class HierarchicalTypes:
+
+    """ Class allows to look up hierarchical relationship types by numeric ID or name """
+
+    def __init__(self, api):
+        self.types = api.get("/adminapi/v1/select/institution_hierarchical_relationship_types/")
+
+    def get(self, which):
+        if type(which) == str and which.isdigit():
+            which = int(which)
+        for l in self.types:
+            if which in [ l['id'], l['type'] ]:
+                return l
+        return None
 
 class DomainChecker:
 
@@ -289,6 +307,7 @@ class NewInstitution:
 
     Countries = None   # this is a class property and will be filled when the first object is made
     Domains = None
+    HierarchicalTypes = None
 
     def __init__(self, api, data, verbose=False):
 
@@ -304,11 +323,13 @@ class NewInstitution:
         # save api for later use
         self.api = api
 
-        # get reference list
+        # get reference lists
         if not NewInstitution.Countries:
             NewInstitution.Countries = api.get_countries()
         if not NewInstitution.Domains:
             NewInstitution.Domains = api.domain_checker()
+        if not NewInstitution.HierarchicalTypes:
+            NewInstitution.HierarchicalTypes = api.get_hierarchical_types()
 
         # check if name and website present
         if not ( csv_coalesce('name_official') and csv_coalesce('website_link') ):
@@ -434,6 +455,11 @@ class NewInstitution:
             match = re.match('\s*(DEQARINST)?([0-9]+)\s*', str(csv_coalesce('parent_id', 'parent_deqar_id')).upper())
             if match:
                 self.institution['hierarchical_parent'] = [ { 'institution': int(match.group(2)) } ]
+                if csv_coalesce('parent_type'):
+                    if self.HierarchicalTypes.get(csv_coalesce('parent_type')):
+                        self.institution['hierarchical_parent'][0]['relationship_type'] = self.HierarchicalTypes.get(csv_coalesce('parent_type'))['id']
+                    else:
+                        raise DataError('Unknown parent_type: [{}]'.format(csv_coalesce('parent_type')))
                 if verbose:
                     self.api._log('  - hierarchical parent ID [{}] (source: [{}])'.format(int(match.group(2)), csv_coalesce('parent_id', 'parent_deqar_id')))
             else:

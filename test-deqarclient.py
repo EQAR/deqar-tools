@@ -39,6 +39,14 @@ class DeqarClientTestCase(unittest.TestCase):
             else:
                 self.assertIsNone(countries.get(test[0]))
 
+    def test_hierarchical_types(self):
+        types = self.api.get_hierarchical_types()
+        for test in self.Tests['hierarchical_types']:
+            if test[1]:
+                self.assertEqual(types.get(test[0])[test[1]], test[2])
+            else:
+                self.assertIsNone(types.get(test[0]))
+
     def test_qf_levels(self):
         levels = self.api.get_qf_ehea_levels()
         for test in self.Tests['qf_levels']:
@@ -109,6 +117,15 @@ class DeqarClientTestCase(unittest.TestCase):
             (999, None),
             ('unknown level', None)
         ],
+        hierarchical_types=[
+            (1, 'type', 'consortium'),
+            ('2', 'type', 'faculty'),
+            ('faculty', 'id', 2),
+            ('independent faculty or school', 'type', 'independent faculty or school'),
+            ('4', None),
+            (None, None),
+            (99, None),
+        ],
         level_sets=[
             (
                 'first, secound cycle',
@@ -146,6 +163,7 @@ class DeqarClientTestCase(unittest.TestCase):
                         identifier='X-CN-0012 ',
                         identifier_resource='CN national  ',
                         parent_id='DeqarINST0987  ',
+                        parent_type='faculty',
                         qf_ehea_levels='short cycle, 6, 7, 8  ' ),
                     {
                         'name_primary': 'Chinese-German University',
@@ -166,7 +184,8 @@ class DeqarClientTestCase(unittest.TestCase):
                             'resource': 'CN national'
                         } ],
                         'hierarchical_parent': [ {
-                            'institution': 987
+                            'institution': 987,
+                            'relationship_type': 2,
                         } ],
                         'qf_ehea_levels': [
                             { 'id': 1, 'code': 0, 'level': 'short cycle' },
@@ -244,6 +263,12 @@ class DeqarClientTestCase(unittest.TestCase):
                         website_link='http://www.deqar.eu/',
                         parent_deqar_id='DEQARINST-4711' ),
                     r'Malformed parent_id: \[DEQARINST-4711\]' ),
+                ( dict( country='BEL',
+                        name_official='Landeskonservatorium Kärnten',
+                        website_link='http://www.deqar.eu/',
+                        parent_deqar_id='DEQARINST4711',
+                        parent_type='notafaculty' ),
+                    r'Unknown parent_type: \[notafaculty\]' ),
                 ( dict( country='BEL',
                         name_official='Landeskonservatorium Kärnten',
                         website_link='http://www.deqar.eu/',
@@ -331,6 +356,11 @@ class DeqarTestServerHandler(BaseHTTPRequestHandler):
             "results":[
             ]
         },
+        r'^/adminapi/v1/select/institution_hierarchical_relationship_types/?$': [
+            { "id": 1, "type": "consortium" },
+            { "id": 2, "type": "faculty" },
+            { "id": 3, "type": "independent faculty or school" },
+        ],
     }
 
     def _headers_ok(self):
