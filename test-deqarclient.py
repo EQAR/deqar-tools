@@ -64,8 +64,9 @@ class DeqarClientTestCase(unittest.TestCase):
                 self.assertRaises(deqarclient.DataError, self.api.create_qf_ehea_level_set, test[0], verbose=True, strict=True)
 
     def test_helpers(self):
+        checker = self.api.domain_checker()
         for test in self.Tests['core_domains']:
-            self.assertEqual(deqarclient.DomainChecker.core_domain(None, test[1]), test[0])
+            self.assertEqual(checker.core_domain(test[1]), test[0])
 
     def test_institution_creator(self):
         self.maxDiff = None
@@ -94,15 +95,18 @@ class DeqarClientTestCase(unittest.TestCase):
             ('educon-university.de',                'www.Educon-University.de'),
             ('esak.de',                             'WWW.Esak.de'),
             ('awm-korntal.eu',                      'https://www.awm-korntal.eu/en/index'),
-            ('de.wikipedia.org',                    'https://de.wikipedia.org/wiki/Fachhochschule_im_Deutschen_Roten_Kreuz'),
-            ('de.wikipedia.org',                    'https://de.wikipedia.org/wiki/FH_KUNST_Arnstadt'),
+            ('wikipedia.org',                       'https://de.wikipedia.org/wiki/Fachhochschule_im_Deutschen_Roten_Kreuz'),
+            ('wikipedia.org',                       'https://de.wikipedia.org/wiki/FH_KUNST_Arnstadt'),
             ('hfg-gmuend.de',                       'http://WWW.hfg-gmuend.de'),
             ('gisma.com',                           'HttpS://www.gisma.com/de'),
             ('hanse-college.de',                    'https://WWW.hanse-college.de/'),
             ('health-and-medical-university.de',    'https://www.health-and-medical-university.de'),
             ('hessische-ba.de',                     'Www.Hessische-BA.de'),
-            ('de.wikipedia.org',                    'https://de.wikipedia.org/wiki/Akademie_f%C3%BCr_digitale_Medienproduktion'),
-            ('s370403951.website-start.de',         'http://s370403951.website-start.de/'),
+            ('wikipedia.org',                       'https://de.wikipedia.org/wiki/Akademie_f%C3%BCr_digitale_Medienproduktion'),
+            ('heidi.github.io',                     'http://www2.heidi.github.io/'),
+            ('w00940ec.kasserver.com',              'https://xyz.web.w00940ec.kasserver.com/path/to/file.html'),
+            ('tuwien.ac.at',                        'https://www.tuwien.ac.at'),
+            ('open.ac.uk',                          'http://www.open.ac.uk/about/main/'),
         ],
         countries=[
             ('AT', 'id', 10),
@@ -194,7 +198,7 @@ class DeqarClientTestCase(unittest.TestCase):
                             { 'id': 4, 'code': 3, 'level': 'third cycle' }
                         ],
                         'flags': [ ],
-                        'website_link': 'http://cdhaw.tongji.edu.cn/',
+                        'website_link': 'https://cdhaw.tongji.edu.cn/',
                         'founding_date': '2000-01-01',
                         'closing_date': '1970-12-31'
                     }
@@ -202,7 +206,7 @@ class DeqarClientTestCase(unittest.TestCase):
                 ( dict( country='BEL',
                         name_official='Landeskonservatorium Kärnten',
                         acronym='LKK ',
-                        website_link='http://www.deqar.eu/  ',
+                        website_link='http://cloud.eqar.eu/  ',
                         city='Klagenfurt / Celovec',
                         founding_date='2003 ',
                         closing_date='2089-5-11 ',
@@ -230,7 +234,7 @@ class DeqarClientTestCase(unittest.TestCase):
                             { 'id': 3, 'code': 2, 'level': 'second cycle' },
                         ],
                         'flags': [ ],
-                        'website_link': 'http://www.deqar.eu/',
+                        'website_link': 'https://cloud.eqar.eu/login',
                         'founding_date': '2003-01-01',
                         'closing_date': '2089-5-11'
                     }

@@ -9,6 +9,7 @@ from getpass import getpass
 from warnings import warn
 
 import requests
+from tldextract import TLDExtract
 
 class DataError (Exception):
 
@@ -211,6 +212,8 @@ class DomainChecker:
 
     """ Fetches website addresses of all known institutions and allows to check against it """
 
+    EXTRACT = TLDExtract(include_psl_private_domains=True)
+
     def __init__(self, api):
 
         self.api = api
@@ -231,11 +234,11 @@ class DomainChecker:
 
     def core_domain(self, website):
         """
-        identifies the core domain of a URL by stripping protocol, www, etc.
+        identifies the core domain of a URL using known TLDs and Public Suffix List
         """
-        match = re.match(r'^\s*(?:[a-z0-9]+://)?(?:www\.)?([^/]+)/?.*$', website, flags=re.IGNORECASE)
-        if match:
-            return match[1].lower()
+        match = self.EXTRACT(website)
+        if match.suffix:
+            return f'{match.domain}.{match.suffix}'.lower()
         else:
             raise(DataError('[{}] is not a valid http/https URL.'.format(website)))
 
