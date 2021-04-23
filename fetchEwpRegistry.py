@@ -149,12 +149,20 @@ try:
         if 'EU-PIC' in hei:
             query = session.post("https://ec.europa.eu/info/funding-tenders/opportunities/api/organisation/search.json", json={ 'pic': hei['EU-PIC'] })
             if query.status_code == requests.codes.ok:
-                vat = query.json()[0]['vat']
-                if vat is None:
-                    stats['PIC code, but no VAT'] += 1
+                found = query.json()
+                if len(found) == 1:
+                    vat = found[0]['vat']
+                    if vat is None:
+                        stats['PIC code found, but no VAT'] += 1
+                    else:
+                        hei['EU-VAT'] = vat
+                        stats['PIC code found, VAT present'] += 1
+                elif len(found) == 0:
+                    stats['PIC code not found'] += 1
                 else:
-                    hei['EU-VAT'] = vat
-                    stats['PIC code, VAT found'] += 1
+                    stats['PIC code got multiple results - odd!'] += 1
+            else:
+                stats['PIC code malformed or similar'] += 1
 
         if 'Erasmus' in hei:
             hei['Erasmus'] = fixErasmus(hei['Erasmus'])
