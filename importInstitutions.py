@@ -30,12 +30,12 @@ else:
 # will hold the institutions to be added (unless --direct is used)
 institutions = list()
 
-with open(args.FILE, newline='') as infile:
+with open(args.FILE, newline='', encoding='utf-8-sig') as infile:
 
     inreader = csv.DictReader(infile)
 
     if args.output:
-        outfile = open(args.output, 'w', newline='')
+        outfile = open(args.output, 'w', newline='', encoding='utf-8-sig')
         outfields = inreader.fieldnames.copy()
         outfields.reverse()
         outfields.append('deqar_id')
