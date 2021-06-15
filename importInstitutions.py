@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from deqarclient import EqarApi, Countries, QfEheaLevels, DataError
+from deqarclient import EqarApi, DataError
 import os
 import argparse
 import csv

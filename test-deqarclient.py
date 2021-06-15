@@ -32,7 +32,7 @@ class DeqarClientTestCase(unittest.TestCase):
         print('done.')
 
     def test_countries(self):
-        countries = self.api.get_countries()
+        countries = self.api.Countries
         for test in self.Tests['countries']:
             if test[1]:
                 self.assertEqual(countries.get(test[0])[test[1]], test[2])
@@ -40,7 +40,7 @@ class DeqarClientTestCase(unittest.TestCase):
                 self.assertIsNone(countries.get(test[0]))
 
     def test_hierarchical_types(self):
-        types = self.api.get_hierarchical_types()
+        types = self.api.HierarchicalTypes
         for test in self.Tests['hierarchical_types']:
             if test[1]:
                 self.assertEqual(types.get(test[0])[test[1]], test[2])
@@ -48,7 +48,7 @@ class DeqarClientTestCase(unittest.TestCase):
                 self.assertIsNone(types.get(test[0]))
 
     def test_qf_levels(self):
-        levels = self.api.get_qf_ehea_levels()
+        levels = self.api.QfEheaLevels
         for test in self.Tests['qf_levels']:
             if test[1]:
                 self.assertEqual(levels.get(test[0])[test[1]], test[2])
@@ -64,7 +64,7 @@ class DeqarClientTestCase(unittest.TestCase):
                 self.assertRaises(deqarclient.DataError, self.api.create_qf_ehea_level_set, test[0], verbose=True, strict=True)
 
     def test_helpers(self):
-        checker = self.api.domain_checker()
+        checker = self.api.DomainChecker
         for test in self.Tests['core_domains']:
             self.assertEqual(checker.core_domain(test[1]), test[0])
 

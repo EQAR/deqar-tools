@@ -33,6 +33,11 @@ class EqarApi:
     ERROR  = 3
     GOOD   = 4
 
+    _Countries = None           # these class properties will be instantiated
+    _QfEheaLevels = None        # as objects when first accessed
+    _HierarchicalTypes = None
+    _DomainChecker = None
+
     def __init__(self, base, token=None, verbose=False, color=None):
         """ Constructor prepares for request. Token is taken from parameter, environment or user is prompted to log in. """
         self.session            = requests.Session()
@@ -146,171 +151,167 @@ class EqarApi:
         """ get single institution record [id] """
         return(self.get(self.webapi + "/browse/institutions/{:d}".format(id)))
 
-    def get_countries(self):
-        return(Countries(self))
-
-    def get_qf_ehea_levels(self):
-        return(QfEheaLevels(self))
-
-    def get_hierarchical_types(self):
-        return(HierarchicalTypes(self))
-
     def create_qf_ehea_level_set(self, *args, **kwargs):
+
+        class QfEheaLevelSet (list):
+            """ Actual set of QfEheaLevels - constructed from input string, mainly for HEI data import """
+
+            LevelKeywords   = dict(
+                                short=0,
+                                first=1,
+                                second=2,
+                                secound=2,
+                                third=3
+                            )
+
+            def __init__(self, api, string, verbose=False, strict=False):
+                """ parses a string for a set of levels, specified by digits or key words, eliminating duplicates and ignoring unknowns """
+
+                recognised = set()
+
+                for l in re.split(r'\s*[^A-Za-z0-9]\s*', string.strip(" ,.\n\r\t\v\f")):
+                    match = re.match('([01235678]|cycle|{})'.format("|".join(self.LevelKeywords.keys())), l);
+                    if match and match.group(1) != 'cycle':
+                        m = match.group(1)
+                        if m.isdigit():
+                            if int(m) > 4:
+                                m = int(m) - 5
+                        else:
+                            m = self.LevelKeywords[m]
+                        level = api.QfEheaLevels.get(m)
+                        recognised.add(level['code'])
+                        if verbose:
+                            api._log('  [{}] => {}/{}'.format(l, level['id'], level['level']))
+                    elif match and match.group(1) == 'cycle':
+                        pass
+                    elif strict:
+                        raise(DataError('  [{}] : QF-EHEA level not recognised, ignored.'.format(l)))
+                    elif verbose:
+                        api._log('  [{}] : QF-EHEA level not recognised, ignored.'.format(l), api.WARN)
+
+                for i in recognised:
+                    self.append(api.QfEheaLevels.get(i))
+
+            def __str__(self):
+                return("QF-EHEA: {}".format("-".join([ str(level['id'] + 4) for level in self ])))
+
         return(QfEheaLevelSet(self, *args, **kwargs))
 
     def create_institution(self, *args, **kwargs):
+        """ create a new institution record """
         return(NewInstitution(self, *args, **kwargs))
 
-    def domain_checker(self):
-        return DomainChecker(self)
+    @property
+    def Countries(self):
+        if not self.__class__._Countries:
+            class Countries:
+                """ Class allows to look up countries by ISO code or ID """
+                def __init__(self, api):
+                    self.countries = api.get("/adminapi/v1/select/country/")
+                def get(self, which):
+                    if type(which) == str and which.isdigit():
+                        which = int(which)
+                    for c in self.countries:
+                        if which in [ c['id'], c['iso_3166_alpha2'], c['iso_3166_alpha3'] ]:
+                            return c
+            self.__class__._Countries = Countries(self)
 
+        return(self.__class__._Countries)
 
-class Countries:
+    @property
+    def QfEheaLevels(self):
+        if not self.__class__._QfEheaLevels:
+            class QfEheaLevels:
+                """ Class allows to look up QF EHEA levels by numeric ID or name """
+                def __init__(self, api):
+                    self.levels = api.get("/adminapi/v1/select/qf_ehea_level/")
+                def get(self, which):
+                    if type(which) == str and which.isdigit():
+                        which = int(which)
+                    for l in self.levels:
+                        if which in [ l['code'], l['level'] ]:
+                            return l
+            self.__class__._QfEheaLevels = QfEheaLevels(self)
 
-    """ Class allows to look up countries by ISO code or ID """
+        return(self.__class__._QfEheaLevels)
 
-    def __init__(self, api):
-        self.countries = api.get("/adminapi/v1/select/country/")
+    @property
+    def HierarchicalTypes(self):
+        if not self.__class__._HierarchicalTypes:
+            class HierarchicalTypes:
+                """ Class allows to look up hierarchical relationship types by numeric ID or name """
+                def __init__(self, api):
+                    self.types = api.get("/adminapi/v1/select/institution_hierarchical_relationship_types/")
+                def get(self, which):
+                    if type(which) == str and which.isdigit():
+                        which = int(which)
+                    for l in self.types:
+                        if which in [ l['id'], l['type'] ]:
+                            return l
+                    return None
+            self.__class__._HierarchicalTypes = HierarchicalTypes(self)
 
-    def get(self, which):
-        if type(which) == str and which.isdigit():
-            which = int(which)
-        for c in self.countries:
-            if which in [ c['id'], c['iso_3166_alpha2'], c['iso_3166_alpha3'] ]:
-                return c
+        return(self.__class__._HierarchicalTypes)
 
-class QfEheaLevels:
+    @property
+    def DomainChecker(self):
 
-    """ Class allows to look up QF EHEA levels by numeric ID or name """
+        if not self.__class__._DomainChecker:
 
-    def __init__(self, api):
-        self.levels = api.get("/adminapi/v1/select/qf_ehea_level/")
+            class DomainChecker:
 
-    def get(self, which):
-        if type(which) == str and which.isdigit():
-            which = int(which)
-        for l in self.levels:
-            if which in [ l['code'], l['level'] ]:
-                return l
+                """ Fetches website addresses of all known institutions and allows to check against it """
 
-class HierarchicalTypes:
+                EXTRACT = TLDExtract(include_psl_private_domains=True)
 
-    """ Class allows to look up hierarchical relationship types by numeric ID or name """
+                def __init__(self, api):
 
-    def __init__(self, api):
-        self.types = api.get("/adminapi/v1/select/institution_hierarchical_relationship_types/")
+                    self.api = api
+                    heis = self.api.get('/connectapi/v1/institutions', limit=10000)
 
-    def get(self, which):
-        if type(which) == str and which.isdigit():
-            which = int(which)
-        for l in self.types:
-            if which in [ l['id'], l['type'] ]:
-                return l
-        return None
+                    self.domains = dict()
+                    for hei in heis['results']:
+                        url = None
+                        if 'website_link' in hei:
+                            try:
+                                url = self.core_domain(hei['website_link'])
+                            except DataError:
+                                pass
+                        if url:
+                            if url not in self.domains:
+                                self.domains[url] = list()
+                            self.domains[url].append(hei)
 
-class DomainChecker:
+                def core_domain(self, website):
+                    """
+                    identifies the core domain of a URL using known TLDs and Public Suffix List
+                    """
+                    match = self.EXTRACT(website)
+                    if match.suffix:
+                        return f'{match.domain}.{match.suffix}'.lower()
+                    else:
+                        raise(DataError('[{}] is not a valid http/https URL.'.format(website)))
 
-    """ Fetches website addresses of all known institutions and allows to check against it """
+                def query(self, website):
+                    """
+                    query if core domain is already known
+                    """
+                    if self.core_domain(website) in self.domains:
+                        for hei in self.domains[self.core_domain(website)]:
+                            self.api._log('  - possible duplicate: {deqar_id} {name_primary} - URL [{website_link}]'.format(**hei), self.api.WARN)
+                        return self.domains[self.core_domain(website)]
+                    else:
+                        return False
 
-    EXTRACT = TLDExtract(include_psl_private_domains=True)
+            self.__class__._DomainChecker = DomainChecker(self)
 
-    def __init__(self, api):
-
-        self.api = api
-        heis = self.api.get('/connectapi/v1/institutions', limit=10000)
-
-        self.domains = dict()
-        for hei in heis['results']:
-            url = None
-            if 'website_link' in hei:
-                try:
-                    url = self.core_domain(hei['website_link'])
-                except DataError:
-                    pass
-            if url:
-                if url not in self.domains:
-                    self.domains[url] = list()
-                self.domains[url].append(hei)
-
-    def core_domain(self, website):
-        """
-        identifies the core domain of a URL using known TLDs and Public Suffix List
-        """
-        match = self.EXTRACT(website)
-        if match.suffix:
-            return f'{match.domain}.{match.suffix}'.lower()
-        else:
-            raise(DataError('[{}] is not a valid http/https URL.'.format(website)))
-
-    def query(self, website):
-        """
-        query if core domain is already known
-        """
-        if self.core_domain(website) in self.domains:
-            for hei in self.domains[self.core_domain(website)]:
-                self.api._log('  - possible duplicate: {deqar_id} {name_primary} - URL [{website_link}]'.format(**hei), self.api.WARN)
-            return self.domains[self.core_domain(website)]
-        else:
-            return False
-
-
-class QfEheaLevelSet (list):
-
-    """ Actual set of QfEheaLevels - constructed from input string, mainly for HEI data import """
-
-    Levels          = None   # this is a class property and will be filled when the first object is made
-    LevelKeywords   = dict(
-                        short=0,
-                        first=1,
-                        second=2,
-                        secound=2,
-                        third=3
-                    )
-
-    def __init__(self, api, string, verbose=False, strict=False):
-        """ parses a string for a set of levels, specified by digits or key words, eliminating duplicates and ignoring unknowns """
-
-        recognised = set()
-
-        if not QfEheaLevelSet.Levels:
-            """ if reference list does not exist, we'll fetch it now """
-            QfEheaLevelSet.Levels = api.get_qf_ehea_levels()
-
-        for l in re.split(r'\s*[^A-Za-z0-9]\s*', string.strip(" ,.\n\r\t\v\f")):
-            match = re.match('([01235678]|cycle|{})'.format("|".join(self.LevelKeywords.keys())), l);
-            if match and match.group(1) != 'cycle':
-                m = match.group(1)
-                if m.isdigit():
-                    if int(m) > 4:
-                        m = int(m) - 5
-                else:
-                    m = self.LevelKeywords[m]
-                level = self.Levels.get(m)
-                recognised.add(level['code'])
-                if verbose:
-                    api._log('  [{}] => {}/{}'.format(l, level['id'], level['level']))
-            elif match and match.group(1) == 'cycle':
-                pass
-            elif strict:
-                raise(DataError('  [{}] : QF-EHEA level not recognised, ignored.'.format(l)))
-            elif verbose:
-                api._log('  [{}] : QF-EHEA level not recognised, ignored.'.format(l), api.WARN)
-
-        for i in recognised:
-            self.append(self.Levels.get(i))
-
-    def __str__(self):
-        return("QF-EHEA: {}".format("-".join([ str(level['id'] + 4) for level in self ])))
+        return(self.__class__._DomainChecker)
 
 class NewInstitution:
 
     """
     creates a new institution record from CSV input
     """
-
-    Countries = None   # this is a class property and will be filled when the first object is made
-    Domains = None
-    HierarchicalTypes = None
 
     def __init__(self, api, data, verbose=False):
 
@@ -325,14 +326,6 @@ class NewInstitution:
 
         # save api for later use
         self.api = api
-
-        # get reference lists
-        if not NewInstitution.Countries:
-            NewInstitution.Countries = api.get_countries()
-        if not NewInstitution.Domains:
-            NewInstitution.Domains = api.domain_checker()
-        if not NewInstitution.HierarchicalTypes:
-            NewInstitution.HierarchicalTypes = api.get_hierarchical_types()
 
         # check if name and website present
         if not ( csv_coalesce('name_official') and csv_coalesce('website_link') ):
@@ -354,14 +347,14 @@ class NewInstitution:
         data['website_link'] = website
 
         # check for duplicate by internet domain
-        self.Domains.query(csv_coalesce('website_link'))
-        if self.Domains.core_domain(website) != self.Domains.core_domain(csv_coalesce('website_link')):
-            self.Domains.query(website)
+        self.api.DomainChecker.query(csv_coalesce('website_link'))
+        if self.api.DomainChecker.core_domain(website) != self.api.DomainChecker.core_domain(csv_coalesce('website_link')):
+            self.api.DomainChecker.query(website)
 
         # resolve country ISO to ID if needed
         if csv_coalesce('country_id', 'country_iso', 'country'):
             which = csv_coalesce('country_id', 'country_iso', 'country')
-            country = self.Countries.get(which)
+            country = self.api.Countries.get(which)
             if not country:
                 raise DataError("Unknown country [{}]".format(which))
             elif verbose:
@@ -459,8 +452,8 @@ class NewInstitution:
             if match:
                 self.institution['hierarchical_parent'] = [ { 'institution': int(match.group(2)) } ]
                 if csv_coalesce('parent_type'):
-                    if self.HierarchicalTypes.get(csv_coalesce('parent_type')):
-                        self.institution['hierarchical_parent'][0]['relationship_type'] = self.HierarchicalTypes.get(csv_coalesce('parent_type'))['id']
+                    if self.api.HierarchicalTypes.get(csv_coalesce('parent_type')):
+                        self.institution['hierarchical_parent'][0]['relationship_type'] = self.api.HierarchicalTypes.get(csv_coalesce('parent_type'))['id']
                     else:
                         raise DataError('Unknown parent_type: [{}]'.format(csv_coalesce('parent_type')))
                 if verbose:
@@ -470,7 +463,7 @@ class NewInstitution:
 
         # process QF levels
         if csv_coalesce('qf_ehea_levels'):
-            self.institution['qf_ehea_levels'] = api.create_qf_ehea_level_set(data['qf_ehea_levels'], verbose=verbose)
+            self.institution['qf_ehea_levels'] = self.api.create_qf_ehea_level_set(data['qf_ehea_levels'], verbose=verbose)
         else:
             self.institution['qf_ehea_levels'] = list()
 
@@ -526,7 +519,7 @@ class NewInstitution:
 
     def __str__(self):
         if 'deqar_id' in self.institution:
-            return("{0[deqar_id]}: {0[name_primary]} ({0[website_link]}, {1[name_english]}, {0[qf_ehea_levels]})".format(self.institution, self.Countries.get(self.institution['countries'][0]['country'])))
+            return("{0[deqar_id]}: {0[name_primary]} ({0[website_link]}, {1[name_english]}, {0[qf_ehea_levels]})".format(self.institution, self.api.Countries.get(self.institution['countries'][0]['country'])))
         else:
-            return("{0[name_primary]} ({0[website_link]}, {1[name_english]}, {0[qf_ehea_levels]})".format(self.institution, self.Countries.get(self.institution['countries'][0]['country'])))
+            return("{0[name_primary]} ({0[website_link]}, {1[name_english]}, {0[qf_ehea_levels]})".format(self.institution, self.api.Countries.get(self.institution['countries'][0]['country'])))
 
