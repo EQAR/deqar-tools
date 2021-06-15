@@ -5,8 +5,12 @@ import requests
 import re
 import json
 import sys
+
 from xml.etree import ElementTree
 from collections import Counter
+
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 def fixErasmus(code):
     """
@@ -74,7 +78,7 @@ class EwpRegistry:
 
 class EufApi:
     # URL
-    eufUrl = "https://hei.dev.uni-foundation.eu/countries"
+    eufUrl = "https://hei.api.uni-foundation.eu/countries"
 
     current = None
 
@@ -138,6 +142,8 @@ session.headers.update({
     'user-agent': 'deqar-fetchEwpRegistry/0.1 ' + session.headers['User-Agent'],
     'accept': 'application/json'
 })
+retries = Retry(total=5, backoff_factor=1, status_forcelist=[ 502, 503, 504 ])
+session.mount('https://', HTTPAdapter(max_retries=retries))
 
 stats = Counter()
 
@@ -152,7 +158,7 @@ try:
                 found = query.json()
                 if len(found) == 1:
                     vat = found[0]['vat']
-                    if vat is None:
+                    if vat is None or vat == '.' or vat == 'not applicable':
                         stats['PIC code found, but no VAT'] += 1
                     else:
                         hei['EU-VAT'] = vat

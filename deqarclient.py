@@ -11,6 +11,12 @@ from warnings import warn
 import requests
 from tldextract import TLDExtract
 
+class HttpError (Exception):
+
+    """ Raised when API returns a non-2xx code """
+
+    pass
+
 class DataError (Exception):
 
     """ Raised when input data is malformed etc. """
@@ -122,7 +128,7 @@ class EqarApi:
             self._log("{} {}".format(r.status_code, r.reason), self.ERROR, nl=False)
             self._log("]")
             self._log(r.text, self.ERROR)
-            raise Exception("{} {}".format(r.status_code, r.reason))
+            raise HttpError("{} {}".format(r.status_code, r.reason))
 
     def get(self, path, **kwargs):
         """ make a GET request to [path] with parameters from [kwargs] """
