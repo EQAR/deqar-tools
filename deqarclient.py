@@ -107,41 +107,34 @@ class EqarApi:
             self._log("Error: {} {}".format(r.status_code, r.reason), self.ERROR)
             raise Exception("DEQAR login failed.")
 
-    def get(self, path, **kwargs):
-        """ make a GET request to [path] with parameters from [kwargs] """
+    def _request(self, method, path, **kwargs):
+        """ make a request to [path] with parameters from [kwargs] """
 
-        self._log("[GET {} ".format(self.base + path), nl=False)
+        self._log("[{} {} ".format(method, self.base + path), nl=False)
 
-        try:
-            r = self.session.get(self.base + path, params=kwargs, timeout=self.request_timeout)
-        except (KeyboardInterrupt):
-            self._log("Request aborted.", self.WARN)
-            return(False)
+        r = self.session.request(method, self.base + path, timeout=self.request_timeout, **kwargs)
 
         if r.status_code == requests.codes.ok:
             self._log("{} {}".format(r.status_code, r.reason), self.GOOD, nl=False)
             self._log("]")
             return(r.json())
         else:
-            self._log("{} {}".format(r.url, r.status_code, r.reason), self.ERROR, nl=False)
+            self._log("{} {}".format(r.status_code, r.reason), self.ERROR, nl=False)
             self._log("]")
+            self._log(r.text, self.ERROR)
             raise Exception("{} {}".format(r.status_code, r.reason))
+
+    def get(self, path, **kwargs):
+        """ make a GET request to [path] with parameters from [kwargs] """
+        return(self._request('GET', path, params=kwargs))
 
     def post(self, path, data):
         """ POST [data] to API endpoint [path] """
-        try:
-            r = self.session.post(self.base + path, json=data, timeout=self.request_timeout)
-        except (KeyboardInterrupt):
-            self._log("Request aborted.", self.WARN)
-            return(False)
+        return(self._request('POST', path, json=data))
 
-        if r.status_code in [ requests.codes.ok, requests.codes.created ]:
-            self._log("Success: {} {}".format(r.status_code, r.reason))
-            return(r.json())
-        else:
-            self._log("{}\nError: {} {}".format(r.url, r.status_code, r.reason), self.ERROR)
-            self._log(r.text, self.ERROR)
-            raise Exception("{} {}".format(r.status_code, r.reason))
+    def put(self, path, data):
+        """ PUT [data] to API endpoint [path] """
+        return(self._request('PUT', path, json=data))
 
     def get_institutions(self, **kwargs):
         """ search institutions, as defined by [kwargs] """
