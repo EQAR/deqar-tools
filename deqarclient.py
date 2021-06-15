@@ -516,3 +516,55 @@ class NewInstitution:
         else:
             return("{0[name_primary]} ({0[website_link]}, {1[name_english]}, {0[qf_ehea_levels]})".format(self.institution, self.api.Countries.get(self.institution['countries'][0]['country'])))
 
+
+class Institution:
+
+    """
+    load and modify an existing institution record
+    """
+
+    def __init__(self, api, pk, verbose=False):
+        # save api for later use
+        self.api = api
+
+        self.data = self.api.get(f'/adminapi/v1/institutions/{pk}/')
+
+        for item in [ 'id', 'deqar_id', 'created_at', 'update_log' ]:
+            setattr(self, item, self.data.get(item))
+            del self.data[item]
+
+        self.data['names'] = self.data['names_actual'] + self.data['names_former']
+        del self.data['names_actual']
+        del self.data['names_former']
+
+        self.data['identifiers'] = self.data['identifiers_local'] + self.data['identifiers_national']
+        del self.data['identifiers_local']
+        del self.data['identifiers_national']
+
+        def replace_dict_by_pk(array, item, pk = 'id'):
+            for i in array:
+                if type(i.get(item)) == dict:
+                    i[item] = i[item].get(pk)
+
+        replace_dict_by_pk(self.data['countries'], 'country')
+        replace_dict_by_pk(self.data['identifiers'], 'agency')
+
+        for item in [ 'hierarchical_parent', 'hierarchical_child', 'historical_source', 'historical_target' ]:
+            replace_dict_by_pk(self.data[item], 'institution')
+        for item in [ 'hierarchical_parent', 'hierarchical_child', 'historical_source', 'historical_target' ]:
+            replace_dict_by_pk(self.data[item], 'relationship_type')
+
+    def save(self, comment='changed by deqarclient.py', verbose=False):
+        """
+        PUT the prepared institution object
+        """
+        data = self.data.copy()
+        data['submit_comment'] = comment
+        response = self.api.put(f'/adminapi/v1/institutions/{self.id}/', data)
+        if verbose:
+            self.api._log(str(self))
+        return(response)
+
+    def __str__(self):
+        return(f"{self.deqar_id}: {self.data['name_primary']} ({self.data['website_link']})")
+
