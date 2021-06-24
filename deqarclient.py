@@ -120,15 +120,17 @@ class EqarApi:
 
         r = self.session.request(method, self.base + path, timeout=self.request_timeout, **kwargs)
 
-        if r.status_code == requests.codes.ok:
-            self._log("{} {}".format(r.status_code, r.reason), self.GOOD, nl=False)
-            self._log("]")
-            return(r.json())
-        else:
+        try:
+            r.raise_for_status()
+        except requests.exceptions.HTTPError:
             self._log("{} {}".format(r.status_code, r.reason), self.ERROR, nl=False)
             self._log("]")
             self._log(r.text, self.ERROR)
             raise HttpError("{} {}".format(r.status_code, r.reason))
+        else:
+            self._log("{} {}".format(r.status_code, r.reason), self.GOOD, nl=False)
+            self._log("]")
+            return(r.json())
 
     def get(self, path, **kwargs):
         """ make a GET request to [path] with parameters from [kwargs] """
