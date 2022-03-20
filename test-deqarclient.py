@@ -5,7 +5,11 @@ import json
 import threading
 import re
 import unittest
-import deqarclient
+import coloredlogs
+
+from deqarclient.api import EqarApi
+from deqarclient.auth import EqarApiTokenAuth
+from deqarclient.errors import *
 
 class DeqarClientTestCase(unittest.TestCase):
 
@@ -15,13 +19,14 @@ class DeqarClientTestCase(unittest.TestCase):
 
     def setUp(self):
         """ we basically need a HTTP server with test data """
+        coloredlogs.install(level='DEBUG')
         print('Starting httpd ...', end='')
         self.httpd = ThreadingHTTPServer( ('localhost', 0), DeqarTestServerHandler)
         self.server_thread = threading.Thread(target=self.httpd.serve_forever)
         self.server_thread.start()
         print('done, port {}.'.format(self.httpd.server_address[1]))
         self.api_url = 'http://localhost:{}/'.format(self.httpd.server_address[1])
-        self.api = deqarclient.EqarApi(self.api_url, 'TEST-TEST', verbose=True)
+        self.api = EqarApi(self.api_url, authclass=EqarApiTokenAuth, token='TEST-TEST')
         print('Test server base URL: {}'.format(self.api_url))
 
     def tearDown(self):
@@ -57,11 +62,11 @@ class DeqarClientTestCase(unittest.TestCase):
 
     def test_level_sets(self):
         for test in self.Tests['level_sets']:
-            test_set = self.api.create_qf_ehea_level_set(test[0], verbose=True, strict=test[3])
+            test_set = self.api.create_qf_ehea_level_set(test[0], strict=test[3])
             self.assertEqual(test_set, test[1])
             self.assertEqual(str(test_set), test[2])
             if not test[3]:
-                self.assertRaises(deqarclient.DataError, self.api.create_qf_ehea_level_set, test[0], verbose=True, strict=True)
+                self.assertRaises(DataError, self.api.create_qf_ehea_level_set, test[0], strict=True)
 
     def test_helpers(self):
         checker = self.api.DomainChecker
@@ -71,16 +76,16 @@ class DeqarClientTestCase(unittest.TestCase):
     def test_institution_creator(self):
         self.maxDiff = None
         for test in self.Tests['institution_creator']['good']:
-            self.assertEqual(self.api.create_institution(test[0], verbose=True).institution, test[1])
+            self.assertEqual(self.api.create_institution(test[0]).institution, test[1])
         for test in self.Tests['institution_creator']['bad']:
             try:
-                self.assertRaisesRegex(deqarclient.DataError, test[1], self.api.create_institution, test[0])
+                self.assertRaisesRegex(DataError, test[1], self.api.create_institution, test[0])
             except (AssertionError):
                 print("Input:\n------\n", test[0], "\n\nOutput:\n-------\n", self.api.create_institution(test[0]).institution)
                 raise
         for test in self.Tests['institution_creator']['warn']:
             try:
-                self.assertWarnsRegex(deqarclient.DataWarning, test[1], self.api.create_institution, test[0])
+                self.assertWarnsRegex(DataWarning, test[1], self.api.create_institution, test[0])
             except (AssertionError):
                 print("Input:\n------\n", test[0], "\n\nOutput:\n-------\n", self.api.create_institution(test[0]).institution)
                 raise

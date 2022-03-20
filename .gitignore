@@ -1,4 +1,7 @@
 __pycache__/
 test-data/
 *.pyc
+build/
+*.egg-info/
+dist/
 

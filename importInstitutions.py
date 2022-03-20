@@ -5,6 +5,7 @@ from deqarclient import EqarApi, DataError
 import os
 import argparse
 import csv
+import coloredlogs
 
 parser = argparse.ArgumentParser()
 parser.add_argument("FILE", help="CSV file to import")
@@ -16,14 +17,17 @@ parser.add_argument("-i", "--ignore", help="ignore data errors: skip input line 
                     action="store_true")
 parser.add_argument("-v", "--verbose", help="increase output verbosity",
                     action="store_true")
-parser.add_argument("-c", "--color", help="force ANSI color output even if not on terminal",
-                    action="store_true")
 args = parser.parse_args()
 
+if args.verbose:
+    coloredlogs.install(level='DEBUG')
+else:
+    coloredlogs.install(level='INFO')
+
 if args.base:
-    api = EqarApi(args.base, verbose=args.verbose, color=True if args.color else None)
+    api = EqarApi(args.base)
 elif 'DEQAR_BASE' in os.environ and os.environ['DEQAR_BASE']:
-    api = EqarApi(os.environ['DEQAR_BASE'], verbose=args.verbose, color=True if args.color else None)
+    api = EqarApi(os.environ['DEQAR_BASE'])
 else:
     raise Exception("Base URL needs to be passed as argument or in DEQAR_BASE environment variable")
 
@@ -49,11 +53,11 @@ with open(args.FILE, newline='', encoding='utf-8-sig') as infile:
 
             print('#{}'.format(inreader.line_num), end='')
 
-            institution = api.create_institution(data, verbose=args.verbose)
+            institution = api.create_institution(data)
 
             if args.direct:
                 # in direct-post mode, we upload immediately
-                data['deqar_id'] = institution.post(verbose=True)
+                data['deqar_id'] = institution.post()
                 if args.output:
                     outwriter.writerow(data)
             else:
@@ -72,7 +76,7 @@ if not args.direct:
     yn = input('Commit? > ')
     if len(yn) > 0 and yn[0].upper() == 'Y':
         for (institution, data) in institutions:
-            data['deqar_id'] = institution.post(verbose=True)
+            data['deqar_id'] = institution.post()
             if args.output:
                 outwriter.writerow(data)
 
