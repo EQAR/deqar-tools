@@ -5,12 +5,13 @@ with open('README.md') as readme_file:
 
 setup_args = dict(
     name='deqarclient',
-    version='0.3.1',
+    version='0.4.2',
     description='Python classes to work with DEQAR APIs',
     long_description_content_type="text/markdown",
     long_description=README,
     license='GPL',
     packages=find_packages(),
+    scripts=['importInstitutions.py'],
     author='Colin Tück',
     author_email='colin.tueck@eqar.eu',
     keywords=['DEQAR'],
@@ -19,6 +20,7 @@ setup_args = dict(
 )
 
 install_requires = [
+    'coloredlogs',
     'requests',
     'tldextract',
     'transliterate'
