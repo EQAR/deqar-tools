@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from deqarclient import EqarApi, DataError
+from deqarclient.api import EqarApi
+from deqarclient.errors import DataError
+from deqarclient.auth import EqarApiInteractiveAuth
+
 import os
 import argparse
 import csv
+import logging
 import coloredlogs
 
 parser = argparse.ArgumentParser()
@@ -22,12 +26,13 @@ args = parser.parse_args()
 if args.verbose:
     coloredlogs.install(level='DEBUG')
 else:
-    coloredlogs.install(level='INFO')
+    coloredlogs.install(level='INFO', fmt='%(name)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 if args.base:
-    api = EqarApi(args.base)
+    api = EqarApi(args.base, authclass=EqarApiInteractiveAuth)
 elif 'DEQAR_BASE' in os.environ and os.environ['DEQAR_BASE']:
-    api = EqarApi(os.environ['DEQAR_BASE'])
+    api = EqarApi(os.environ['DEQAR_BASE'], authclass=EqarApiInteractiveAuth)
 else:
     raise Exception("Base URL needs to be passed as argument or in DEQAR_BASE environment variable")
 
@@ -51,8 +56,6 @@ with open(args.FILE, newline='', encoding='utf-8-sig') as infile:
 
         try:
 
-            print('#{}'.format(inreader.line_num), end='')
-
             institution = api.create_institution(data)
 
             if args.direct:
@@ -63,11 +66,11 @@ with open(args.FILE, newline='', encoding='utf-8-sig') as infile:
             else:
                 # otherwise, add to list for later commit
                 institutions.append((institution, data))
-                print("(queued) {}".format(institution))
+                logger.info(f"#{inreader.line_num} queued: {institution}")
 
         except DataError as data_error:
             if args.ignore:
-                print("-- {} -- skipped line".format(data_error))
+                logger.warning(f"#{inreader.line_num} skipped: {data_error}")
             else:
                 raise
 
