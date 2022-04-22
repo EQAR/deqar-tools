@@ -2,6 +2,7 @@
 
 import os
 import logging
+import requests
 
 from getpass import getpass
 
