@@ -5,7 +5,7 @@ with open('README.md') as readme_file:
 
 setup_args = dict(
     name='deqarclient',
-    version='0.4.2',
+    version='0.5.1',
     description='Python classes to work with DEQAR APIs',
     long_description_content_type="text/markdown",
     long_description=README,

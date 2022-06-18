@@ -25,12 +25,12 @@ class EqarApi:
     _HierarchicalTypes = None
     _DomainChecker = None
 
-    def __init__(self, base, authclass=EqarApiEnvAuth, **kwargs):
+    def __init__(self, base, authclass=EqarApiEnvAuth, request_timeout=10, **kwargs):
         """ Constructor prepares for request. Token is taken from parameter, environment or user is prompted to log in. """
         self.session            = requests.Session()
         self.base               = base.rstrip('/')
         self.webapi             = '/webapi/v2'
-        self.request_timeout    = 5
+        self.request_timeout    = request_timeout
         self.logger             = logging.getLogger(__name__)
 
         self.session.headers.update({
