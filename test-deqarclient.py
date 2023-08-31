@@ -203,7 +203,7 @@ class DeqarClientTestCase(unittest.TestCase):
                             { 'id': 4, 'code': 3, 'level': 'third cycle' }
                         ],
                         'flags': [ ],
-                        'website_link': 'https://cdhaw.tongji.edu.cn/',
+                        'website_link': 'https://cdhaw.tongji.edu.cn/main.htm',
                         'founding_date': '2000-01-01',
                         'closing_date': '1970-12-31'
                     }
