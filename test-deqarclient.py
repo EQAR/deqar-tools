@@ -9,6 +9,7 @@ import coloredlogs
 
 from deqarclient.api import EqarApi
 from deqarclient.auth import EqarApiTokenAuth
+from deqarclient.csv import NestedDictReader
 from deqarclient.errors import *
 
 class DeqarClientTestCase(unittest.TestCase):
@@ -72,6 +73,14 @@ class DeqarClientTestCase(unittest.TestCase):
         checker = self.api.DomainChecker
         for test in self.Tests['core_domains']:
             self.assertEqual(checker.core_domain(test[1]), test[0])
+
+    def test_csv_reader(self):
+        for test in self.Tests['csv_reader']['good']:
+            inreader = NestedDictReader(test[0])
+            self.assertEqual(next(inreader), test[1])
+        for test in self.Tests['csv_reader']['bad']:
+            inreader = NestedDictReader(test)
+            self.assertRaises(DataError, next, inreader)
 
     def test_institution_creator(self):
         self.maxDiff = None
@@ -137,22 +146,22 @@ class DeqarClientTestCase(unittest.TestCase):
         ],
         level_sets=[
             (
-                'first, secound cycle',
+                [ 'first', 'secound cycle' ],
                 [ { 'id': 2, 'code': 1, 'level': 'first cycle' }, { 'id': 3, 'code': 2, 'level': 'second cycle' } ],
                 'QF-EHEA: 6-7',
                 True
             ),(
-                'short cycle, third cycle',
+                [ 'short cycle', 'third cycle' ],
                 [ { 'id': 1, 'code': 0, 'level': 'short cycle' }, { 'id': 4, 'code': 3, 'level': 'third cycle' } ],
                 'QF-EHEA: 5-8',
                 True
             ),(
-                'EQF 5 (short cycle), 6, 7',
+                [ 'EQF 5 (short cycle)', '6', '7' ],
                 [ { 'id': 1, 'code': 0, 'level': 'short cycle' }, { 'id': 2, 'code': 1, 'level': 'first cycle' }, { 'id': 3, 'code': 2, 'level': 'second cycle' } ],
                 'QF-EHEA: 5-6-7',
-                False
+                True
             ),(
-                'something about spam',
+                [ 'something about spam' ],
                 [ ],
                 'QF-EHEA: ',
                 False
@@ -165,7 +174,7 @@ class DeqarClientTestCase(unittest.TestCase):
                         name_english='Chinese-German University  ',
                         name_version='testname ',
                         acronym='ABC123',
-                        website_link='cdhaw.tongji.edu.cn ',
+                        website_link=' cloud.eqar.eu/foobar',
                         city='  Shanghai ',
                         founding_date=' 2000-01-01',
                         closing_date='1970 ',
@@ -173,7 +182,7 @@ class DeqarClientTestCase(unittest.TestCase):
                         identifier_resource='CN national  ',
                         parent_id='DeqarINST0987  ',
                         parent_type='faculty',
-                        qf_ehea_levels='short cycle, 6, 7, 8  ' ),
+                        qf_ehea_levels=[ 'short cycle', '6', '7', '8  ' ] ),
                     {
                         'name_primary': 'Chinese-German University',
                         'names': [ {
@@ -203,7 +212,7 @@ class DeqarClientTestCase(unittest.TestCase):
                             { 'id': 4, 'code': 3, 'level': 'third cycle' }
                         ],
                         'flags': [ ],
-                        'website_link': 'https://cdhaw.tongji.edu.cn/main.htm',
+                        'website_link': 'https://cloud.eqar.eu/login',
                         'founding_date': '2000-01-01',
                         'closing_date': '1970-12-31'
                     }
@@ -218,7 +227,7 @@ class DeqarClientTestCase(unittest.TestCase):
                         identifier='  4711 ',
                         agency_id=11,
                         parent_id='  ',
-                        qf_ehea_levels='1&2' ),
+                        qf_ehea_levels=[ '1', '2' ] ),
                     {
                         'name_primary': 'Landeskonservatorium Kärnten',
                         'names': [ {
@@ -336,7 +345,74 @@ class DeqarClientTestCase(unittest.TestCase):
                         website_link='http://www.deqar.eu/' ),
                     r' - !!! DUPLICATE NAME' )
             ]
-        ) # institutions
+        ), # institutions
+        csv_reader=dict(
+            good=[
+                (
+                    [
+                        "name,location[1].city,location[1].country,location[2].country,location[3].city",
+                        "HEI,Aachen,DE,SI,Zagreb",
+                    ],
+                    {
+                        "name": "HEI",
+                        "location": [
+                            {
+                                "country": "DE",
+                                "city": "Aachen"
+                            },
+                            {
+                                "country": "SI"
+                            },
+                            {
+                                "city": "Zagreb"
+                            },
+                        ]
+                    }
+                ),
+                (
+                    [
+                        "name,qf_ehea_level[0],qf_ehea_level[7],obj.list[1].sublist[2],obj.list[2],obj.list[1].sublist[1],obj.list[3].a,obj.list[3].b",
+                        "HEI, EQF 5,           EQF 6,           A,                     B,          C,                     D,            E",
+                    ],
+                    {
+                        "name": "HEI",
+                        "qf_ehea_level": [
+                            "EQF 5",
+                            "EQF 6"
+                        ],
+                        "obj": {
+                            "list": [
+                                {
+                                    "sublist": [
+                                        "C",
+                                        "A"
+                                    ]
+                                },
+                                "B",
+                                {
+                                    "a": "D",
+                                    "b": "E"
+                                }
+                            ]
+                        }
+                    }
+                ),
+            ],
+            bad=[
+                [
+                    "name,qf_ehea_level[0],qf_ehea_level[7],obj.list[1].sublist[2],obj.list[2],obj.list[2].sublist[1],obj.list[3].a,obj.list[3].b",
+                    "HEI, EQF 5,           EQF 6,           A,                     B,          C,                     D,            E",
+                ],
+                [
+                    "name,qf_ehea_level,qf_ehea_level[7]",
+                    "HEI, EQF 5,        EQF 6",
+                ],
+                [
+                    "name,qf_ehea_level[0],qf_ehea_level[7],obj.list[1].sublist[2],obj.list[1],obj.list[2].sublist[1],obj.list[3].a,obj.list[3].b",
+                    "HEI, EQF 5,           EQF 6,           A,                     B,          C,                     D,            E",
+                ]
+            ]
+        )
     ) # Tests
 
 # ----------------------------------------------------------------------------------------- #

@@ -4,6 +4,7 @@
 from deqarclient.api import EqarApi
 from deqarclient.errors import DataError
 from deqarclient.auth import EqarApiInteractiveAuth
+from deqarclient.csv import flat_to_nested
 
 import os
 import argparse
@@ -56,7 +57,7 @@ with open(args.FILE, newline='', encoding='utf-8-sig') as infile:
 
         try:
 
-            institution = api.create_institution(data)
+            institution = api.create_institution(flat_to_nested(data))
 
             if args.direct:
                 # in direct-post mode, we upload immediately

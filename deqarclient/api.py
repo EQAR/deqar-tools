@@ -80,7 +80,7 @@ class EqarApi:
     def create_qf_ehea_level_set(self, *args, **kwargs):
 
         class QfEheaLevelSet (list):
-            """ Actual set of QfEheaLevels - constructed from input string, mainly for HEI data import """
+            """ Actual set of QfEheaLevels - constructed from input list, mainly for HEI data import """
 
             LevelKeywords   = dict(
                                 short=0,
@@ -90,14 +90,17 @@ class EqarApi:
                                 third=3
                             )
 
-            def __init__(self, api, string, strict=False):
+            def __init__(self, api, source_list, strict=False):
                 """ parses a string for a set of levels, specified by digits or key words, eliminating duplicates and ignoring unknowns """
 
                 recognised = set()
 
-                for l in re.split(r'\s*[^A-Za-z0-9]\s*', string.strip(" ,.\n\r\t\v\f")):
-                    match = re.match('([01235678]|cycle|{})'.format("|".join(self.LevelKeywords.keys())), l);
-                    if match and match.group(1) != 'cycle':
+                if isinstance(source_list, str):
+                    source_list = re.split(r'\s*[^A-Za-z0-9]\s*', source_list)
+
+                for l in source_list:
+                    match = re.search('([01235678]|{})'.format("|".join(self.LevelKeywords.keys())), l);
+                    if match:
                         m = match.group(1)
                         if m.isdigit():
                             if int(m) > 4:
@@ -107,8 +110,6 @@ class EqarApi:
                         level = api.QfEheaLevels.get(m)
                         recognised.add(level['code'])
                         api.logger.debug('  [{}] => {}/{}'.format(l, level['id'], level['level']))
-                    elif match and match.group(1) == 'cycle':
-                        pass
                     elif strict:
                         raise(DataError('  [{}] : QF-EHEA level not recognised, ignored.'.format(l)))
                     else:
