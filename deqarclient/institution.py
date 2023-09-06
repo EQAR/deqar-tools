@@ -177,7 +177,7 @@ class NewInstitution:
             path = match[3] or '/'
             url = protocol + domain + path
             try:
-                r = requests.head(url, allow_redirects=True)
+                r = requests.head(url, allow_redirects=True, timeout=self.api.request_timeout)
             except requests.exceptions.ConnectionError:
                 self.api.logger.warning("  - could not connect to URL [{}]".format(url))
                 return url
