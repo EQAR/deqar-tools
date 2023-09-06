@@ -68,7 +68,7 @@ if [ -x "$(command -v http)" ]; then
     # we have HTTPie installed
 
     if [ "$FILE" = "" ]; then
-        http -v $METHOD $URL "Authorization: Bearer $DEQAR_TOKEN" "${@:2}"
+        http $METHOD $URL "Authorization: Bearer $DEQAR_TOKEN" "${@:2}"
     else
         http -v $METHOD $URL "Authorization: Bearer $DEQAR_TOKEN" "Content-type: $CTYPE" "${@:3}" < $FILE
     fi
