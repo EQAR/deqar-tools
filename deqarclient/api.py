@@ -24,6 +24,7 @@ class EqarApi:
     _QfEheaLevels = None        # as objects when first accessed
     _HierarchicalTypes = None
     _DomainChecker = None
+    _OrganizationTypes = None
 
     def __init__(self, base, authclass=EqarApiEnvAuth, request_timeout=10, **kwargs):
         """ Constructor prepares for request. Token is taken from parameter, environment or user is prompted to log in. """
@@ -95,18 +96,15 @@ class EqarApi:
 
                 recognised = set()
 
-                if isinstance(source_list, str):
-                    source_list = re.split(r'\s*[^A-Za-z0-9]\s*', source_list)
-
                 for l in source_list:
-                    match = re.search('([01235678]|{})'.format("|".join(self.LevelKeywords.keys())), l);
+                    match = re.search('([01235678]|{})'.format("|".join(self.LevelKeywords.keys())), l, re.IGNORECASE);
                     if match:
                         m = match.group(1)
                         if m.isdigit():
                             if int(m) > 4:
                                 m = int(m) - 5
                         else:
-                            m = self.LevelKeywords[m]
+                            m = self.LevelKeywords[m.lower()]
                         level = api.QfEheaLevels.get(m)
                         recognised.add(level['code'])
                         api.logger.debug('  [{}] => {}/{}'.format(l, level['id'], level['level']))
@@ -178,6 +176,23 @@ class EqarApi:
             self._HierarchicalTypes = HierarchicalTypes(self)
 
         return(self._HierarchicalTypes)
+
+    @property
+    def OrganizationTypes(self):
+        if not self._OrganizationTypes:
+            class OrganizationTypes:
+                """ Class to look up organization types (for AP) """
+                def __init__(self, api):
+                    self.types = api.get("/adminapi/v1/select/institutions/organization_type/")
+                def get(self, which):
+                    if type(which) == str and which.isdigit():
+                        which = int(which)
+                    for l in self.types:
+                        if which in [ l['id'], l['type'] ]:
+                            return l
+                    return None
+            self._OrganizationTypes = OrganizationTypes(self)
+        return(self._OrganizationTypes)
 
     @property
     def DomainChecker(self):

@@ -19,7 +19,7 @@ class NewInstitution:
     creates a new institution record from CSV input
     """
 
-    def __init__(self, api, data):
+    def __init__(self, api, data, alternative_provider=False):
 
         def csv_coalesce(*args):
             for column in args:
@@ -68,10 +68,11 @@ class NewInstitution:
 
         # basic record
         self.institution = dict(
+            is_alternative_provider=alternative_provider,
             name_primary=name_primary,
             website_link=website,
             names=[ { 'name_official': csv_coalesce('name_official') }],
-            countries=[ { 'country': country['id'] } ],
+            countries=[ { 'country': country['id'], 'country_verified': True } ],
             flags=[ ]
         )
 
@@ -110,6 +111,27 @@ class NewInstitution:
             self.institution['names'][0]['acronym'] = csv_coalesce('acronym')
         if csv_coalesce('city'):
             self.institution['countries'][0]['city'] = csv_coalesce('city')
+        if csv_coalesce('latitude'):
+            self.institution['countries'][0]['lat'] = csv_coalesce('latitude')
+        if csv_coalesce('longitude'):
+            self.institution['countries'][0]['long'] = csv_coalesce('longitude')
+        if csv_coalesce('other_location'):
+            for location in csv_coalesce('other_location'):
+                if 'country' in location:
+                    country = self.api.Countries.get(location['country'])
+                    if not country:
+                        raise DataError("Unknown country [{}]".format(location['country']))
+                    self.api.logger.debug('  - country [{}] resolved to {} (ID {})'.format(location['country'],country['name_english'],country['id']))
+                else:
+                    raise DataError("Country needs to be specified for each location")
+                add_location = { 'country': country['id'], 'country_verified': False }
+                if 'city' in location:
+                    add_location['city'] = location['city']
+                if 'latitude' in location:
+                    add_location['lat'] = location['latitude']
+                if 'longitude' in location:
+                    add_location['long'] = location['longitude']
+                self.institution['countries'].append(add_location)
         if csv_coalesce('founding_date'):
             match = re.match(r'^\s*([0-9]{4})(-(?:1[012]|0?[0-9])-(?:31|30|[012]?[0-9]))?\s*$', data['founding_date'])
             if match:
@@ -128,23 +150,30 @@ class NewInstitution:
                     self.institution['closing_date'] = match[1] + match[2]
             else:
                 raise DataError("Malformed closing_date: [{}]".format(data['closing_date']))
+        if csv_coalesce('type_provider'):
+            organization_type = self.api.OrganizationTypes.get(csv_coalesce('type_provider'))
+            if organization_type:
+                self.institution['organization_type'] = organization_type['id']
+                self.api.logger.debug('  - organization type: {} (ID {})'.format(organization_type['type'], organization_type['id']))
+            else:
+                raise DataError("Unknown type of provider [{}]".format(data['type_provider']))
+        if csv_coalesce('source_information'):
+            self.institution['source_of_information'] = csv_coalesce('source_information')
 
         # process identifier
         if csv_coalesce('identifier'):
             self.institution['identifiers'] = [ { 'identifier': csv_coalesce('identifier') } ]
             if 'identifier_resource' not in data and 'agency_id' not in data:
                 raise(DataError("Identifier needs to have an agency ID or a resource."))
-            if 'identifier_resource' in data and 'agency_id' in data:
-                warn(DataWarning("  - identifier [{}] should not have both agency_id AND a resource".format(csv_coalesce('identifier'))))
             if 'identifier_resource' in data:
                 self.institution['identifiers'][0]['resource'] = csv_coalesce('identifier_resource')
                 self.api.logger.info('  - identifier [{}] with resource [{}]'.format(csv_coalesce('identifier'), csv_coalesce('identifier_resource')))
             else:
                 self.institution['identifiers'][0]['resource'] = 'local identifier'
-                self.api.logger.info('  - identifier [{}] as local identifier'.format(csv_coalesce('identifier')))
-            if 'agency_id' in data:
                 self.institution['identifiers'][0]['agency'] = csv_coalesce('agency_id')
-                self.api.logger.info('  linked to agency ID [{}]'.format(csv_coalesce('agency_id')))
+                self.api.logger.info('  - identifier [{}] as local identifier of agency ID [{}]'.format(csv_coalesce('identifier'), csv_coalesce('agency_id')))
+            if 'identifier_source' in data:
+                self.institution['identifiers'][0]['source'] = csv_coalesce('identifier_source')
 
         # process parent institution
         if csv_coalesce('parent_id', 'parent_deqar_id'):
@@ -162,7 +191,9 @@ class NewInstitution:
 
         # process QF levels
         if csv_coalesce('qf_ehea_levels'):
-            self.institution['qf_ehea_levels'] = self.api.create_qf_ehea_level_set(data['qf_ehea_levels'])
+            self.institution['qf_ehea_levels'] = self.api.create_qf_ehea_level_set(re.split(r'\s*[^A-Za-z0-9]\s*', csv_coalesce('qf_ehea_levels')))
+        elif csv_coalesce('qf_ehea_level'):
+            self.institution['qf_ehea_levels'] = self.api.create_qf_ehea_level_set(data['qf_ehea_level'])
         else:
             self.institution['qf_ehea_levels'] = list()
 

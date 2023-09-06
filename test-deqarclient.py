@@ -86,6 +86,8 @@ class DeqarClientTestCase(unittest.TestCase):
         self.maxDiff = None
         for test in self.Tests['institution_creator']['good']:
             self.assertEqual(self.api.create_institution(test[0]).institution, test[1])
+        for test in self.Tests['institution_creator']['good_ap']:
+            self.assertEqual(self.api.create_institution(test[0], alternative_provider=True).institution, test[1])
         for test in self.Tests['institution_creator']['bad']:
             try:
                 self.assertRaisesRegex(DataError, test[1], self.api.create_institution, test[0])
@@ -170,6 +172,7 @@ class DeqarClientTestCase(unittest.TestCase):
         institution_creator=dict(
             good=[
                 ( dict( country_id='AT',
+                        agency_id=11,
                         name_official='  Chinesisch-Deutsche Hochschule für Angewandte Wissenschaften an der Tongji-Universität  ',
                         name_english='Chinese-German University  ',
                         name_version='testname ',
@@ -182,8 +185,9 @@ class DeqarClientTestCase(unittest.TestCase):
                         identifier_resource='CN national  ',
                         parent_id='DeqarINST0987  ',
                         parent_type='faculty',
-                        qf_ehea_levels=[ 'short cycle', '6', '7', '8  ' ] ),
+                        qf_ehea_levels='short cycle, 6,7, 8  ' ),
                     {
+                        'is_alternative_provider': False,
                         'name_primary': 'Chinese-German University',
                         'names': [ {
                             'name_official': 'Chinesisch-Deutsche Hochschule für Angewandte Wissenschaften an der Tongji-Universität',
@@ -195,7 +199,8 @@ class DeqarClientTestCase(unittest.TestCase):
                         } ],
                         'countries': [ {
                             'country': 10,
-                            'city': 'Shanghai'
+                            'city': 'Shanghai',
+                            'country_verified': True
                         } ],
                         'identifiers': [ {
                             'identifier': 'X-CN-0012',
@@ -227,8 +232,9 @@ class DeqarClientTestCase(unittest.TestCase):
                         identifier='  4711 ',
                         agency_id=11,
                         parent_id='  ',
-                        qf_ehea_levels=[ '1', '2' ] ),
+                        qf_ehea_level=[ '1', '2' ] ),
                     {
+                        'is_alternative_provider': False,
                         'name_primary': 'Landeskonservatorium Kärnten',
                         'names': [ {
                             'name_official': 'Landeskonservatorium Kärnten',
@@ -236,7 +242,8 @@ class DeqarClientTestCase(unittest.TestCase):
                         } ],
                         'countries': [ {
                             'country': 17,
-                            'city': 'Klagenfurt / Celovec'
+                            'city': 'Klagenfurt / Celovec',
+                            'country_verified': True
                         } ],
                         'identifiers': [ {
                             'identifier': '4711',
@@ -253,6 +260,63 @@ class DeqarClientTestCase(unittest.TestCase):
                         'closing_date': '2089-5-11'
                     }
                 )
+            ],
+            good_ap=[
+                ( dict( country_id='AT',
+                        name_official='Alternative Uni Wien',
+                        name_english='Vienna Alternative "University"',
+                        acronym='AUW',
+                        website_link=' cloud.eqar.eu/foobar',
+                        city='Vienna',
+                        latitude=48.1951219,
+                        longitude=16.3716378,
+                        other_location=[ dict(country='BE', city='Brussels'), dict(country='SI', city='Ljubljana', latitude=46.0513491, longitude=14.5090710) ],
+                        founding_date='2000-01-01',
+                        identifier='X-AT-4711',
+                        identifier_resource='EU-VAT',
+                        type_provider='non governmental organisation',
+                        qf_ehea_level=[ 'short cycle', 'EQF 6' ],
+                        source_information='Austrian chamber of commerce' ),
+                    {
+                        'is_alternative_provider': True,
+                        'name_primary': 'Vienna Alternative "University"',
+                        'names': [ {
+                            'name_official': 'Alternative Uni Wien',
+                            'name_english': 'Vienna Alternative "University"',
+                            'acronym': 'AUW'
+                        } ],
+                        'countries': [ {
+                            'country': 10,
+                            'city': 'Vienna',
+                            'lat': 48.1951219,
+                            'long': 16.3716378,
+                            'country_verified': True
+                        }, {
+                            'country': 17,
+                            'city': 'Brussels',
+                            'country_verified': False
+                        }, {
+                            'country': 157,
+                            'city': 'Ljubljana',
+                            'lat': 46.0513491,
+                            'long': 14.5090710,
+                            'country_verified': False
+                        } ],
+                        'identifiers': [ {
+                            'identifier': 'X-AT-4711',
+                            'resource': 'EU-VAT'
+                        } ],
+                        'qf_ehea_levels': [
+                            { 'id': 1, 'code': 0, 'level': 'short cycle' },
+                            { 'id': 2, 'code': 1, 'level': 'first cycle' },
+                        ],
+                        'flags': [ ],
+                        'organization_type': 2,
+                        'website_link': 'https://cloud.eqar.eu/login',
+                        'founding_date': '2000-01-01',
+                        'source_of_information': 'Austrian chamber of commerce'
+                    }
+                ),
             ],
             bad=[
                 ( dict( country='BEL',
@@ -317,16 +381,31 @@ class DeqarClientTestCase(unittest.TestCase):
                         website_link='http://www.deqar.eu/',
                         closing_date='11/11/2011' ),
                     r'Malformed closing_date' ),
+                ( dict( country='AT',
+                        name_official='Alternative Uni Wien',
+                        website_link=' cloud.eqar.eu/foobar',
+                        other_location=[ dict(country='XY', city='Brussels') ],
+                        identifier='X-AT-4711',
+                        identifier_resource='EU-VAT',
+                        type_provider='private company' ),
+                    r'Unknown country \[XY\]' ),
+                ( dict( country_id='AT',
+                        name_official='Alternative Uni Wien',
+                        website_link=' cloud.eqar.eu/foobar',
+                        other_location=[ dict(city='Brussels') ],
+                        identifier='X-AT-4711',
+                        identifier_resource='EU-VAT',
+                        type_provider='private company' ),
+                    r'Country needs to be specified for each location' ),
+                ( dict( country_id='AT',
+                        name_official='Alternative Uni Wien',
+                        website_link=' cloud.eqar.eu/foobar',
+                        identifier='X-AT-4711',
+                        identifier_resource='EU-VAT',
+                        type_provider='NGO/institute' ),
+                    r'Unknown type of provider \[NGO/institute\]' ),
             ],
             warn = [
-                ( dict( country='BEL',
-                        name_official='Landeskonservatorium Kärnten',
-                        name_english='Carinthian Conservatory',
-                        website_link='http://www.deqar.eu/',
-                        identifier='4711',
-                        identifier_resource='XYZ',
-                        agency_id=456 ),
-                    r'  - identifier \[4711\] should not have both agency_id AND a resource' ),
                 ( dict( country='BEL',
                         name_official='Landeskonservatorium Kärnten',
                         name_english='Landeskonservatorium Kärnten',
@@ -445,6 +524,11 @@ class DeqarTestServerHandler(BaseHTTPRequestHandler):
             { "id": 1, "type": "consortium" },
             { "id": 2, "type": "faculty" },
             { "id": 3, "type": "independent faculty or school" },
+        ],
+        r'^/adminapi/v1/select/institutions/organization_type/?$': [
+            { "id": 1, "type": "private company" },
+            { "id": 2, "type": "non governmental organisation" },
+            { "id": 3, "type": "public – private partnership" },
         ],
     }
 
