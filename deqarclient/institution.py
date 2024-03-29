@@ -19,7 +19,7 @@ class NewInstitution:
     creates a new institution record from CSV input
     """
 
-    def __init__(self, api, data, alternative_provider=False):
+    def __init__(self, api, data, other_provider=False):
 
         def csv_coalesce(*args):
             for column in args:
@@ -48,7 +48,8 @@ class NewInstitution:
         self.api.logger.debug('  - webiste={}'.format(csv_coalesce('website_link')))
 
         # normalise website
-        website = self._url_normalise(csv_coalesce('website_link'))
+        #website = self._url_normalise(csv_coalesce('website_link'))
+        website = csv_coalesce('website_link')
         data['website_link'] = website
 
         # check for duplicate by internet domain
@@ -68,7 +69,7 @@ class NewInstitution:
 
         # basic record
         self.institution = dict(
-            is_alternative_provider=alternative_provider,
+            is_other_provider=other_provider,
             name_primary=name_primary,
             website_link=website,
             names=[ { 'name_official': csv_coalesce('name_official') }],

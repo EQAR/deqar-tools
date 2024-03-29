@@ -14,7 +14,7 @@ import coloredlogs
 
 parser = argparse.ArgumentParser()
 parser.add_argument("FILE", help="CSV file to import")
-parser.add_argument("-a", "--ap", help="load organisations as alternative providers (default: higher education institutions)",
+parser.add_argument("-a", "--ap", help="load organisations as other providers (default: higher education institutions)",
                     action="store_true")
 parser.add_argument("-b", "--base", help="Base URL to the DEQAR admin API (can also be set as DEQAR_BASE environment variable)")
 parser.add_argument("--direct", help="post institution records directly (otherwise, whole file is read first)",
@@ -59,7 +59,7 @@ with open(args.FILE, newline='', encoding='utf-8-sig') as infile:
 
         try:
 
-            institution = api.create_institution(flat_to_nested(data), alternative_provider=args.ap)
+            institution = api.create_institution(flat_to_nested(data), other_provider=args.ap)
 
             if args.direct:
                 # in direct-post mode, we upload immediately

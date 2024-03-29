@@ -87,7 +87,7 @@ class DeqarClientTestCase(unittest.TestCase):
         for test in self.Tests['institution_creator']['good']:
             self.assertEqual(self.api.create_institution(test[0]).institution, test[1])
         for test in self.Tests['institution_creator']['good_ap']:
-            self.assertEqual(self.api.create_institution(test[0], alternative_provider=True).institution, test[1])
+            self.assertEqual(self.api.create_institution(test[0], other_provider=True).institution, test[1])
         for test in self.Tests['institution_creator']['bad']:
             try:
                 self.assertRaisesRegex(DataError, test[1], self.api.create_institution, test[0])
@@ -177,7 +177,7 @@ class DeqarClientTestCase(unittest.TestCase):
                         name_english='Chinese-German University  ',
                         name_version='testname ',
                         acronym='ABC123',
-                        website_link=' cloud.eqar.eu/foobar',
+                        website_link=' cloud.eqar.eu',
                         city='  Shanghai ',
                         founding_date=' 2000-01-01',
                         closing_date='1970 ',
@@ -187,7 +187,7 @@ class DeqarClientTestCase(unittest.TestCase):
                         parent_type='faculty',
                         qf_ehea_levels='short cycle, 6,7, 8  ' ),
                     {
-                        'is_alternative_provider': False,
+                        'is_other_provider': False,
                         'name_primary': 'Chinese-German University',
                         'names': [ {
                             'name_official': 'Chinesisch-Deutsche Hochschule für Angewandte Wissenschaften an der Tongji-Universität',
@@ -234,7 +234,7 @@ class DeqarClientTestCase(unittest.TestCase):
                         parent_id='  ',
                         qf_ehea_level=[ '1', '2' ] ),
                     {
-                        'is_alternative_provider': False,
+                        'is_other_provider': False,
                         'name_primary': 'Landeskonservatorium Kärnten',
                         'names': [ {
                             'name_official': 'Landeskonservatorium Kärnten',
@@ -266,7 +266,7 @@ class DeqarClientTestCase(unittest.TestCase):
                         name_official='Alternative Uni Wien',
                         name_english='Vienna Alternative "University"',
                         acronym='AUW',
-                        website_link=' cloud.eqar.eu/foobar',
+                        website_link=' cloud.eqar.eu',
                         city='Vienna',
                         latitude=48.1951219,
                         longitude=16.3716378,
@@ -278,7 +278,7 @@ class DeqarClientTestCase(unittest.TestCase):
                         qf_ehea_level=[ 'short cycle', 'EQF 6' ],
                         source_information='Austrian chamber of commerce' ),
                     {
-                        'is_alternative_provider': True,
+                        'is_other_provider': True,
                         'name_primary': 'Vienna Alternative "University"',
                         'names': [ {
                             'name_official': 'Alternative Uni Wien',

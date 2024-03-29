@@ -5,7 +5,7 @@ with open('README.md') as readme_file:
 
 setup_args = dict(
     name='deqarclient',
-    version='0.5.1',
+    version='1.0.0',
     description='Python classes to work with DEQAR APIs',
     long_description_content_type="text/markdown",
     long_description=README,
@@ -16,7 +16,7 @@ setup_args = dict(
     author_email='colin.tueck@eqar.eu',
     keywords=['DEQAR'],
     url='https://github.com/EQAR/deqar-tools/',
-    download_url='https://pypi.org/project//'
+    download_url='https://pypi.org/project/deqarclient/'
 )
 
 install_requires = [

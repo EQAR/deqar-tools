@@ -52,7 +52,7 @@ class EqarApi:
         try:
             r.raise_for_status()
         except requests.exceptions.HTTPError:
-            self.logger.error("[HTTP error {}: {}]".format(r.status_code, r.reason))
+            self.logger.error("[HTTP error {}: {}]\nRequest: {}\nResponse: {}".format(r.status_code, r.reason, json.dumps(kwargs.get('json', {}), indent=4, sort_keys=True), json.dumps(r.json(), indent=4, sort_keys=True)))
             raise HttpError("{} {}".format(r.status_code, r.reason))
         else:
             self.logger.debug("[HTTP {} {}]".format(r.status_code, r.reason))
