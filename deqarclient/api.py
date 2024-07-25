@@ -25,6 +25,7 @@ class EqarApi:
     _HierarchicalTypes = None
     _DomainChecker = None
     _OrganizationTypes = None
+    _IdentifierResources = None
 
     def __init__(self, base, authclass=EqarApiEnvAuth, request_timeout=10, **kwargs):
         """ Constructor prepares for request. Token is taken from parameter, environment or user is prompted to log in. """
@@ -193,6 +194,21 @@ class EqarApi:
                     return None
             self._OrganizationTypes = OrganizationTypes(self)
         return(self._OrganizationTypes)
+
+    @property
+    def IdentifierResources(self):
+        if not self._IdentifierResources:
+            class IdentifierResources:
+                """ Class to keep a list of allowed identifier resources """
+                def __init__(self, api):
+                    self.resources = {}
+                    for r in api.get("/adminapi/v1/select/identifier_resource/"):
+                        self.resources[r['resource']] = r
+                def get(self, which):
+                    return self.resources.get(which, None)
+            self._IdentifierResources = IdentifierResources(self)
+
+        return(self._IdentifierResources)
 
     @property
     def DomainChecker(self):

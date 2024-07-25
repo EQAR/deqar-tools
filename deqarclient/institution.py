@@ -168,7 +168,10 @@ class NewInstitution:
                 raise(DataError("Identifier needs to have an agency ID or a resource."))
             if 'identifier_resource' in data:
                 self.institution['identifiers'][0]['resource'] = csv_coalesce('identifier_resource')
-                self.api.logger.info('  - identifier [{}] with resource [{}]'.format(csv_coalesce('identifier'), csv_coalesce('identifier_resource')))
+                if self.api.IdentifierResources.get(self.institution['identifiers'][0]['resource']):
+                    self.api.logger.info('  - identifier [{}] with resource [{}]'.format(csv_coalesce('identifier'), csv_coalesce('identifier_resource')))
+                else:
+                    raise DataError('Identifier [{}] with unknown resource: [{}]'.format(csv_coalesce('identifier'), csv_coalesce('identifier_resource')))
             else:
                 self.institution['identifiers'][0]['resource'] = 'local identifier'
                 self.institution['identifiers'][0]['agency'] = csv_coalesce('agency_id')
