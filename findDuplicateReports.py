@@ -70,6 +70,8 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--trace",
                         help="trace memory use with tracemalloc",
                         action="store_true")
+    parser.add_argument("-a", "--agency",
+                        help="check specific agency only")
     args = parser.parse_args()
 
     if args.trace:
@@ -104,10 +106,14 @@ if __name__ == "__main__":
         current, peak = tracemalloc.get_traced_memory()
         logger.info(f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB")
 
+    kwargs = {}
+    if args.agency:
+        kwargs['agency'] = args.agency
+
     try:
         while offset < total:
             logger.info(f"Checking report {offset}-{offset+PAGESIZE-1} of {total}")
-            response = api.get("/webapi/v2/browse/reports/", offset=offset, limit=PAGESIZE)
+            response = api.get("/webapi/v2/browse/reports/", offset=offset, limit=PAGESIZE, **kwargs)
             total = response['count']
             offset += PAGESIZE
             for r in response['results']:
