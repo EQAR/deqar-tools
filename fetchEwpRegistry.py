@@ -78,7 +78,7 @@ class EwpRegistry:
 
 class EufApi:
     # URL
-    eufUrl = "https://hei.api.uni-foundation.eu/countries"
+    eufUrl = "https://hei.api.uni-foundation.eu/api/public/v1/hei"
 
     current = None
 
@@ -97,7 +97,7 @@ class EufApi:
             'accept': 'application/json'
         })
 
-        self.countries = iter(self.eufSession.get(self.eufUrl).json()['data'])
+        self.heis = iter(self.eufSession.get(self.eufUrl).json()['data'])
 
     def _iter_country(self):
         c = self.countries.__next__()
@@ -107,14 +107,7 @@ class EufApi:
         return(self)
 
     def __next__(self):
-        if self.current is None:
-            self._iter_country()
-
-        try:
-            hei = self.current.__next__()
-        except StopIteration:
-            self._iter_country()
-            hei = self.current.__next__()
+        hei = self.heis.__next__()
 
         ret = { self.idmap[None]: hei['id'] }
 
@@ -150,7 +143,9 @@ stats = Counter()
 output = list()
 
 try:
+    count = 0
     for hei in source:
+        count += 1
         print(hei, file=sys.stderr)
         if 'EU-PIC' in hei:
             query = session.post("https://ec.europa.eu/info/funding-tenders/opportunities/api/organisation/search.json", json={ 'pic': hei['EU-PIC'] })
@@ -176,6 +171,7 @@ try:
             output.append(hei)
         else:
             stats['No Erasmus code'] += 1
+    print(f'{count} HEIs')
 
 except KeyboardInterrupt:
     pass

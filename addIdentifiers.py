@@ -31,7 +31,7 @@ class AddIdentifiers:
                 self.AdditionalIds[i[self.key].strip()] = i
                 del self.AdditionalIds[i[self.key].strip()][self.key]
 
-    def _run_step(self, offset, limit, country=None):
+    def _run_step(self, offset, limit, country=None, commit=False):
 
         heis = self.api.get('/connectapi/v1/institutions', offset=offset, limit=limit, country=country)
 
@@ -89,19 +89,19 @@ class AddIdentifiers:
                                 self.api._log(f"  - mismatch between SCHAC={identifier} and core_domain={self.api.DomainChecker.core_domain(hei.data['website_link'])} (extracted from {hei.data['website_link']})", level=self.api.WARN)
                         except DataError:
                             pass
-                if changed:
+                if changed and commit:
                     hei.save(comment="addIdentifiers.py - import from EUF/EWP API")
 
         return(heis['count'])
 
-    def run(self, country = None):
+    def run(self, country=None, commit=False):
         offset = 0
         limit = 25
         count = 1
 
         self.api._log(f"Syncing identifiers: 0% (0/NA)\r", nl=False, level=self.api.WARN)
         while offset < count:
-            count = self._run_step(offset, limit, country)
+            count = self._run_step(offset, limit, country, commit)
             offset += limit
             self.api._log(f"Syncing identifiers: {round(100*min(offset,count)/count)}% ({min(offset,count)}/{count})\r", nl=False, level=self.api.WARN)
 
@@ -117,6 +117,8 @@ if __name__ == "__main__":
                         action="store_true")
     parser.add_argument("-c", "--color", help="force ANSI color output even if not on terminal",
                         action="store_true")
+    parser.add_argument("-n", "--dry-run", help="log, but do not commit any changes",
+                        action="store_true")
     args = parser.parse_args()
 
     if args.base:
@@ -130,7 +132,7 @@ if __name__ == "__main__":
         ids = AddIdentifiers(api, json.load(infile), key='Erasmus')
 
     try:
-        ids.run(country=args.country)
+        ids.run(country=args.country, commit=not args.dry_run)
     except KeyboardInterrupt:
         print()
 
