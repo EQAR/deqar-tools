@@ -249,13 +249,15 @@ class EqarApi:
                     else:
                         raise(DataError('[{}] is not a valid http/https URL.'.format(website)))
 
-                def query(self, website):
+                def query(self, website, parent=None):
                     """
                     query if core domain is already known
                     """
                     if self.core_domain(website) in self.domains:
                         for hei in self.domains[self.core_domain(website)]:
-                            self.api.logger.warning('  - possible duplicate: {deqar_id} {name_primary} - URL [{website_link}]'.format(**hei))
+                            # if we are checking for a faculty, ignore matches of the parent HEI or siblings
+                            if parent is None or (parent != hei['id'] and parent not in [ rel['institution']['id'] for rel in hei['part_of'] ]):
+                                self.api.logger.warning('  - possible duplicate: {deqar_id} {name_primary} - URL [{website_link}]'.format(**hei))
                         return self.domains[self.core_domain(website)]
                     else:
                         return False

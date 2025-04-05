@@ -52,11 +52,6 @@ class NewInstitution:
         website = csv_coalesce('website_link')
         data['website_link'] = website
 
-        # check for duplicate by internet domain
-        self.api.DomainChecker.query(csv_coalesce('website_link'))
-        if self.api.DomainChecker.core_domain(website) != self.api.DomainChecker.core_domain(csv_coalesce('website_link')):
-            self.api.DomainChecker.query(website)
-
         # resolve country ISO to ID if needed
         if csv_coalesce('country_id', 'country_iso', 'country'):
             which = csv_coalesce('country_id', 'country_iso', 'country')
@@ -88,6 +83,26 @@ class NewInstitution:
             warn(DataWarning("  - !!! DUPLICATE NAME: Name version [{}] identical to English name.".format(data['name_version'])))
             del data['name_version']
 
+        # process parent institution
+        if csv_coalesce('parent_id', 'parent_deqar_id'):
+            match = re.match('\s*(DEQARINST)?([0-9]+)\s*', str(csv_coalesce('parent_id', 'parent_deqar_id')).upper())
+            if match:
+                self.institution['hierarchical_parent'] = [ { 'institution': int(match.group(2)) } ]
+                if csv_coalesce('parent_type'):
+                    if self.api.HierarchicalTypes.get(csv_coalesce('parent_type')):
+                        self.institution['hierarchical_parent'][0]['relationship_type'] = self.api.HierarchicalTypes.get(csv_coalesce('parent_type'))['id']
+                    else:
+                        raise DataError('Unknown parent_type: [{}]'.format(csv_coalesce('parent_type')))
+                self.api.logger.info('  - hierarchical parent ID [{}] (source: [{}])'.format(int(match.group(2)), csv_coalesce('parent_id', 'parent_deqar_id')))
+            else:
+                raise DataError('Malformed parent_id: [{}]'.format(csv_coalesce('parent_id', 'parent_deqar_id')))
+
+        # check for duplicate by internet domain
+        self.api.DomainChecker.query(csv_coalesce('website_link'), parent=self.institution['hierarchical_parent'][0]['institution'] if 'hierarchical_parent' in self.institution else None)
+        if self.api.DomainChecker.core_domain(website) != self.api.DomainChecker.core_domain(csv_coalesce('website_link')):
+            self.api.DomainChecker.query(website, parent=self.institution['hierarchical_parent'][0]['institution'] if 'hierarchical_parent' in self.institution else None)
+
+        # check duplicate based on name
         self._query_name(csv_coalesce('name_official'))
 
         # add optional attributes
@@ -179,20 +194,6 @@ class NewInstitution:
             if 'identifier_source' in data:
                 self.institution['identifiers'][0]['source'] = csv_coalesce('identifier_source')
 
-        # process parent institution
-        if csv_coalesce('parent_id', 'parent_deqar_id'):
-            match = re.match('\s*(DEQARINST)?([0-9]+)\s*', str(csv_coalesce('parent_id', 'parent_deqar_id')).upper())
-            if match:
-                self.institution['hierarchical_parent'] = [ { 'institution': int(match.group(2)) } ]
-                if csv_coalesce('parent_type'):
-                    if self.api.HierarchicalTypes.get(csv_coalesce('parent_type')):
-                        self.institution['hierarchical_parent'][0]['relationship_type'] = self.api.HierarchicalTypes.get(csv_coalesce('parent_type'))['id']
-                    else:
-                        raise DataError('Unknown parent_type: [{}]'.format(csv_coalesce('parent_type')))
-                self.api.logger.info('  - hierarchical parent ID [{}] (source: [{}])'.format(int(match.group(2)), csv_coalesce('parent_id', 'parent_deqar_id')))
-            else:
-                raise DataError('Malformed parent_id: [{}]'.format(csv_coalesce('parent_id', 'parent_deqar_id')))
-
         # process QF levels
         if csv_coalesce('qf_ehea_levels'):
             self.institution['qf_ehea_levels'] = self.api.create_qf_ehea_level_set(re.split(r'\s*[^A-Za-z0-9]\s*', csv_coalesce('qf_ehea_levels')))
@@ -235,7 +236,10 @@ class NewInstitution:
         candidates = self.api.get('/connectapi/v1/institutions/', query=name)
         if candidates['count']:
             for hei in candidates['results']:
-                self.api.logger.warning('  - possible duplicate, name match: {deqar_id} {name_primary}'.format(**hei))
+                # only consider faculties part of the same institution
+                if 'hierarchical_parent' not in self.institution or \
+                    self.institution['hierarchical_parent'][0]['institution'] in [ rel['institution']['id'] for rel in hei['part_of'] ]:
+                    self.api.logger.warning('  - possible duplicate, name match: {deqar_id} {name_primary}'.format(**hei))
             return candidates['results']
         return False
 
