@@ -17,7 +17,7 @@ import hashlib
 
 import tracemalloc
 
-PAGESIZE = 2500
+PAGESIZE = 500
 
 class DuplicateSets:
     """
