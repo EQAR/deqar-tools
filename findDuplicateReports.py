@@ -147,8 +147,9 @@ if __name__ == "__main__":
                             "id",
                             "agency_acronym",
                             "local_identifier",
-                            "agency_esg_activity__type",
-                            "agency_esg_activity",
+                            "agency_esg_activities__group_id",
+                            "agency_esg_activities__type",
+                            "agency_esg_activities__activity",
                             "institutions",
                             "programme__names",
                             "programme__level",
@@ -174,6 +175,9 @@ if __name__ == "__main__":
                             for report_id in s:
                                 report = api.get(f"/webapi/v2/browse/reports/{report_id}/")
                                 report['_hash'] = h
+                                report["agency_esg_activities__group_id"] = " | ".join([ str(a["group_id"]) for a in report["agency_esg_activities"] ])
+                                report["agency_esg_activities__type"] = " | ".join([ a["activity"] for a in report["agency_esg_activities"] ])
+                                report["agency_esg_activities__activity"] = " | ".join([ a["activity_type"] for a in report["agency_esg_activities"] ])
                                 report['institutions'] = " | ".join([ f"{i['deqar_id']} {i['name_primary']}" for i in report['institutions'] ])
                                 report['programme__names'] = " | ".join([ "/".join([ pn['name'] for pn in p['programme_names'] ]) for p in report['programmes'] ])
                                 report['programme__qualifications'] = " | ".join([ "/".join([ pn['qualification'] for pn in p['programme_names'] ]) for p in report['programmes'] ])
