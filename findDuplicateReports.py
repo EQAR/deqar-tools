@@ -38,7 +38,9 @@ class DuplicateSets:
         """
         fields = (
             sorted([ hei["id"] for hei in report["institutions"] ]),
-            sorted([ f"{prog['name_primary']}|{prog['qf_ehea_level']}|{prog['nqf_level']}|{prog['programme_type']}|{prog['workload_ects']}" for prog in report["programmes"] ]),
+            sorted([ f"{prog['qf_ehea_level']}|{prog['nqf_level']}|{prog['programme_type']}|{prog['workload_ects']}|" +
+                ";".join(sorted([ f"{pn['name']}/{pn['qualification']}" for pn in prog['names'] ]))
+                for prog in report["programmes"] ]),
             report["agency_esg_activity"],
             report["valid_from"],
             report.get("valid_to", None),
